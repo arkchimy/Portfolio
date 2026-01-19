@@ -37,7 +37,7 @@ void clsLoginZone::OnEnterWorld(ull SessionID, SOCKADDR_IN &addr, void *pPlayer)
 
         player = static_cast<stPlayer *>(pPlayer);
         prePlayer_hash.insert({SessionID, player});
-
+        Auth_SessionCnt = prePlayer_hash.size();
         return;
     }
 
@@ -54,7 +54,7 @@ void clsLoginZone::OnEnterWorld(ull SessionID, SOCKADDR_IN &addr, void *pPlayer)
         }
         player = (stPlayer*)player_pool.Alloc();
         prePlayer_hash.insert({SessionID, player});
-
+        Auth_SessionCnt = prePlayer_hash.size();
     }
 }
 
@@ -112,6 +112,7 @@ void clsLoginZone::OnLeaveWorld(ull SessionID)
         __debugbreak();
     }
     prePlayer_hash.erase(iter);
+    Auth_SessionCnt = prePlayer_hash.size();
 }
 
 void clsLoginZone::OnDisConnect(ull SessionID)
@@ -133,7 +134,10 @@ void clsLoginZone::OnDisConnect(ull SessionID)
 
     // 중복제거로인한 다른 sessionID가 들어가있을수 있음.
     if (player->_SessionID == SessionID)
+    {
         prePlayer_hash.erase(iter);
+        Auth_SessionCnt = prePlayer_hash.size();
+    }
 
     {
         auto iter = SessionID_hash.find(SessionID);
@@ -147,7 +151,10 @@ void clsLoginZone::OnDisConnect(ull SessionID)
             if (iter != Account_hash.end())
             {
                 if( SessionID == iter->second->_SessionID)
+                {
                     Account_hash.erase(iter);
+                    User_SessionCnt = Account_hash.size();
+                }
             }
             else
             {
@@ -300,6 +307,8 @@ void clsLoginZone::REQ_LOGIN(ull SessionID, CMessage *msg, INT64 AccountNo, WCHA
             _server->Disconnect(player->_SessionID);
             
             Account_hash.erase(iter);
+            User_SessionCnt = Account_hash.size();
+
             CSystemLog::GetInstance()->Log(L"OnDisConnect", en_LOG_LEVEL::ERROR_Mode, L"LoginZone_DisConnect %20s SessionID : %lld AccountNo : %lld",
                                            player->_SessionID,AccountNo);
 
@@ -329,6 +338,7 @@ void clsLoginZone::REQ_LOGIN(ull SessionID, CMessage *msg, INT64 AccountNo, WCHA
 
             SessionID_hash.insert({SessionID, player});
             Account_hash.insert({AccountNo, player});
+            User_SessionCnt = Account_hash.size();
 
             _server->RequeseMoveZone(SessionID, (ZoneKeyType)enZoneType::EchoZone,player);
         }

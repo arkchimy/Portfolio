@@ -38,4 +38,6 @@ class clsEchoZone : public IZone
 
     ull _msgTypeCntArr[Max]{0,};
     ull totalPacketCnt = 0;
+
+    ull LoginThreadFPS = 0;
 };

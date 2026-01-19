@@ -20,12 +20,13 @@ enum enMonitorType : BYTE
     SessionCnt,
     AUTHCnt, // 인증대기 
     UserCnt, // 인증완료
-    AcceptTPS,
+    AcceptTPS, 
     RecvTPS,
     SendTPS,
     DB_WRITE_TPS,
     DB_WRITE_MSG,
-    AUTH_THREAD_FPS, // 로그인 쓰레드 초당 루프 횟수.
+    // 로그인 쓰레드 초당 루프 횟수.
+    AUTH_THREAD_FPS, 
     GAME_THREAD_FPS,
     PACKET_POOL,
     Max,

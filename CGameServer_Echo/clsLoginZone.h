@@ -55,4 +55,14 @@ class clsLoginZone : public IZone
   public:
     ull _msgTypeCntArr[Max]{0,};
     ull totalPacketCnt = 0;
+
+
+    // 모니터링 정보
+
+    ull Auth_SessionCnt = 0;
+    ull User_SessionCnt = 0;
+    
+    // Frame 시 ++하기 1초의 구별은 모니터링 쓰레드에서 구현
+    ull LoginThreadFPS = 0;
+    
 };
