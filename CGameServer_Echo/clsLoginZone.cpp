@@ -36,8 +36,12 @@ void clsLoginZone::OnEnterWorld(ull SessionID, SOCKADDR_IN &addr, void *pPlayer)
         }
 
         player = static_cast<stPlayer *>(pPlayer);
+
+
         prePlayer_hash.insert({SessionID, player});
         Auth_SessionCnt = prePlayer_hash.size();
+
+
         return;
     }
 
@@ -53,9 +57,13 @@ void clsLoginZone::OnEnterWorld(ull SessionID, SOCKADDR_IN &addr, void *pPlayer)
             __debugbreak();
         }
         player = (stPlayer*)player_pool.Alloc();
+        player->_SessionID = SessionID;
+
         prePlayer_hash.insert({SessionID, player});
         Auth_SessionCnt = prePlayer_hash.size();
     }
+
+    AcceptTps++;
 }
 
 void clsLoginZone::OnRecv(ull SessionID, CMessage *msg)
@@ -87,6 +95,7 @@ void clsLoginZone::OnRecv(ull SessionID, CMessage *msg)
 
 void clsLoginZone::OnUpdate()
 {
+    _UpdateFrame++;
     DWORD currentTime = timeGetTime();
     DWORD distance;
 
@@ -113,6 +122,7 @@ void clsLoginZone::OnLeaveWorld(ull SessionID)
     }
     prePlayer_hash.erase(iter);
     Auth_SessionCnt = prePlayer_hash.size();
+
 }
 
 void clsLoginZone::OnDisConnect(ull SessionID)
@@ -165,6 +175,8 @@ void clsLoginZone::OnDisConnect(ull SessionID)
         }
 
         // Player반환은 여기서.
+        player->_SessionID = 0;
+        player->_AccountNo = 0;
         player_pool.Release(player);
     }
 }
@@ -287,8 +299,7 @@ void clsLoginZone::REQ_LOGIN(ull SessionID, CMessage *msg, INT64 AccountNo, WCHA
                 stTlsObjectPool<CMessage>::Release(msg);
                 _server->Disconnect(SessionID);
 
-                CSystemLog::GetInstance()->Log(L"OnDisConnect", en_LOG_LEVEL::ERROR_Mode, L"LoginZone_DisConnect %20s SessionID : %lld ",
-                                               L" REQ_LOGIN false return ", SessionID);
+
                 return;
             }
         }
@@ -309,8 +320,6 @@ void clsLoginZone::REQ_LOGIN(ull SessionID, CMessage *msg, INT64 AccountNo, WCHA
             Account_hash.erase(iter);
             User_SessionCnt = Account_hash.size();
 
-            CSystemLog::GetInstance()->Log(L"OnDisConnect", en_LOG_LEVEL::ERROR_Mode, L"LoginZone_DisConnect %20s SessionID : %lld AccountNo : %lld",
-                                           player->_SessionID,AccountNo);
 
         }
 
@@ -322,8 +331,8 @@ void clsLoginZone::REQ_LOGIN(ull SessionID, CMessage *msg, INT64 AccountNo, WCHA
             __debugbreak();
         }
         player = prePlayeriter->second;
-        player->_AccountNo = AccountNo;
-
+        //player->_AccountNo = AccountNo;
+        InterlockedExchange64(&player->_AccountNo, AccountNo);
         {
 
             // 전환 완료 메세지가 없으므로
@@ -341,6 +350,7 @@ void clsLoginZone::REQ_LOGIN(ull SessionID, CMessage *msg, INT64 AccountNo, WCHA
             User_SessionCnt = Account_hash.size();
 
             _server->RequeseMoveZone(SessionID, (ZoneKeyType)enZoneType::EchoZone,player);
+
         }
     }
 }

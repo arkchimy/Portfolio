@@ -6,6 +6,7 @@ class clsEchoZone : public IZone
 {
     enum enMsgType : std::uint8_t
     {
+        ReqLoginPack,
         EchoPacket,
         HeartBeatPacket,
         Max,
@@ -40,4 +41,6 @@ class clsEchoZone : public IZone
     ull totalPacketCnt = 0;
 
     ull LoginThreadFPS = 0;
+
+    ull _UpdateFrame = 0;
 };

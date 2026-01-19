@@ -161,7 +161,7 @@
     <ClInclude Include="MonitorData.h" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\C-Study\_Portfolio\CGameServer_Echo\CLanClient\CLanClient.vcxproj">
+    <ProjectReference Include="CLanClient\CLanClient.vcxproj">
       <Project>{39e2d828-ea33-41eb-b19b-e5604710ff6c}</Project>
     </ProjectReference>
     <ProjectReference Include="CrushDump_lib\CrushDump_lib.vcxproj">

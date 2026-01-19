@@ -991,6 +991,11 @@ void clsSession::Release()
         stTlsObjectPool<CMessage>::Release(msg);
     }
 
+     while (m_ZoneBuffer.Pop(msg))
+    {
+        stTlsObjectPool<CMessage>::Release(msg);
+    }
+
     for (DWORD i = 0; i < m_sendOverlapped.msgCnt; i++)
     {
         stTlsObjectPool<CMessage>::Release(m_sendOverlapped.msgs[i]);

@@ -64,11 +64,13 @@ bool CZoneServer::OnAccept(ull SessionID, SOCKADDR_IN &addr)
     session._addr = addr;
     msg->ownerID = SessionID;
 
-    session.m_zoneSet = m_LoginZone;
-    m_LoginZone->Push(msg);
+    session.m_zoneSet = _LoginZone;
+    _LoginZone->Push(msg);
 
-    SetEvent(m_LoginZone->_hEvent);
+    SetEvent(_LoginZone->_hEvent);
 
+    CSystemLog::GetInstance()->Log(L"Session_Log", en_LOG_LEVEL::DEBUG_Mode, L"OnAccept %20s  : %lld ",
+                                   L" SessionID ", SessionID);
     return true;
 }
 
@@ -77,7 +79,7 @@ void CZoneServer::OnRecv(ull SessionID, CMessage *msg)
 {
     clsSession &session = sessions_vec[SessionID >> 47];
     session.m_ZoneBuffer.Push(msg);
-
+    InterlockedIncrement(&_RecvTotalCnt);
 }
 
 //  IOCP 에서 알려주는 용도
@@ -107,6 +109,7 @@ void CZoneServer::RequeseMoveZone(ull SessionID, ZoneKeyType targetZone, void *p
     session.pPlayer = pPlayer;
 
     {
+        std::shared_lock<SharedMutex> lock(_zoneMutex);
         auto iter = _zoneMap.find(targetZone);
         if (iter == _zoneMap.end())
         {

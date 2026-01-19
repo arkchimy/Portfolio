@@ -58,17 +58,16 @@ class CZoneServer : public CLanServer
 
     void RequeseMoveZone(ull SessionID, ZoneKeyType targetZone,void* pPlayer);
 
-    //////////////////////////////////////////
-    virtual BOOL Start(const wchar_t *bindAddress, short port, int ZeroCopy, int WorkerCreateCnt, int maxConcurrency, int useNagle, int maxSessions);
 
     protected:
-    ZoneSet *m_LoginZone = nullptr;
+    ZoneSet *_LoginZone = nullptr;
 
     // OnRecv를 통해 해당 이벤트를 SetEvent 시켜야하므로 서버의OnRecv에서 접근할 수 있어야함.
     HANDLE _hLoginEvent = INVALID_HANDLE_VALUE;
 
     ull _bLoginZoneChk = false;
-
+    ull _RecvTotalCnt = 0;
+    
   public:
 
     //  동기화 객체의 필요성 : 여러쓰레드에서 Regist하면
@@ -108,7 +107,7 @@ inline void CZoneServer::RegisterLoginZone(const wchar_t *ThreadName, int deltaT
     T *LoginZone = new T();
     _hLoginEvent = CreateEvent(nullptr, 0, 0, nullptr);
 
-    m_LoginZone = new ZoneSet(LoginZone, ThreadName, deltaTime, this , _hLoginEvent);
+    _LoginZone = new ZoneSet(LoginZone, ThreadName, deltaTime, this , _hLoginEvent);
 
     {
         std::lock_guard<SharedMutex> lock(_zoneMutex);
@@ -117,7 +116,7 @@ inline void CZoneServer::RegisterLoginZone(const wchar_t *ThreadName, int deltaT
             // zone 의 중복 등록  무시할 수도있지만, 수정하도록 유도
             __debugbreak();
         }
-        _zoneMap.insert({key, m_LoginZone});
+        _zoneMap.insert({key, _LoginZone});
     }
 }
 

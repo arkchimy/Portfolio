@@ -13,7 +13,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CDB", "CZoneNetworkLib\CDB\
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CrushDump_lib", "CrushDump_lib\CrushDump_lib.vcxproj", "{4E2AADBA-FB6A-489D-9070-59BBB3778DC0}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CLanClient", "..\..\C-Study\_Portfolio\CGameServer_Echo\CLanClient\CLanClient.vcxproj", "{39E2D828-EA33-41EB-B19B-E5604710FF6C}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CLanClient", "CLanClient\CLanClient.vcxproj", "{39E2D828-EA33-41EB-B19B-E5604710FF6C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

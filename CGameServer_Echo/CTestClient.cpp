@@ -65,7 +65,6 @@ void CTestClient::OnEnterJoinServer(ull SessionID)
     *msg << en_PACKET_SS_MONITOR_LOGIN;
     *msg << ServerNo;
 
-    CSystemLog::GetInstance()->Log(L"ClientError", en_LOG_LEVEL::SYSTEM_Mode, L"OnEnterJoinServer SessionID : %lld", SessionID);
 
     PostReQuest_iocp(SessionID, msg);
 }

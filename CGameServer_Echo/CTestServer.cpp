@@ -3,17 +3,69 @@
 #include <stdio.h>
 #include "CZoneNetworkLib/CNetworkLib/utility/CCpuUsage/CCpuUsage.h"
 
+#include "MonitorData.h"
+
 
 #pragma comment(lib, "Pdh.lib")
 
 void CTestServer::MonitorThread()
 {
+    // 해당 스레드는 Regist후 호출된다.
+    // 
+    // 
+    
+    clsLoginZone *loginZone = static_cast<clsLoginZone*>( _zoneMap[ZoneKeyType(enZoneType::LoginZone)]->GetZone());
+    clsEchoZone *echoZone = static_cast<clsEchoZone *>(_zoneMap[ZoneKeyType(enZoneType::EchoZone)]->GetZone());
+
+
+    ull LoginFPS;
+    ull EchoFPS;
+
+    ull current_LoginThreadFrameCnt;
+    ull current_EchoThreadFrameCnt;
+
+    ull old_LoginThreadFrameCnt =0;
+    ull old_EchoThreadFrameCnt = 0;
+    //모니터링  변수
+
+    size_t MaxSessions = sessions_vec.size();
+    ull SessionCnt; // Network에서의 Session 수
+    ull AuthCnt;    // 인증 대기 Session수
+    ull UserCnt;    // 인증이 완료된 Session 수
+
+
+    // 이전 프레임에서의 차이를 이용
+    ull old_Accept = 0 ; // 이전 프레임에서 Accept를 한 카운트.
+    ull old_RecvCnt = 0; //이전 프레임에서 OnRecv를 한 카운트.
+
+    ull current_Accept; // 이전 프레임에서 OnRecv를 한 카운트.
+    ull current_RecvCnt; //이전 프레임에서 OnRecv를 한 카운트.
+
+
+    ull AcceptTps;
+    ull RecvTps;
+
+    ull LoginTps;
+    ull ResLoginTps;
+
+    ull EchoTps;
+    ull HeartTps;
+
+    //
+    ull old_GameServer_msgTypeCntArr[2]{0,};
+    ull old_GameContents_msgTypeCntArr[2]{0,};
+
+    ull current_GameServer_msgTypeCntArr[2];
+    ull current_GameContents_msgTypeCntArr[2];
+
+
+    
+
     timeBeginPeriod(1);
 
     DWORD currentTime;
     DWORD nextTime; // 내가 목표로하는 이상적인 시간.
 
-    size_t MaxSessions = sessions_vec.size();
 
     char ProfilerFormat[2][30] = {
         "Profiler_Mode : Off\n",
@@ -24,10 +76,10 @@ void CTestServer::MonitorThread()
     PdhOpenQuery(NULL, NULL, &hQuery);
 
     PDH_HCOUNTER Process_PrivateByte;
-    PdhAddCounter(hQuery, L"\\Process(MT_ChattingServer)\\Private Bytes", NULL, &Process_PrivateByte);
+    PdhAddCounter(hQuery, L"\\Process(CGameServer_Echo)\\Private Bytes", NULL, &Process_PrivateByte);
 
     PDH_HCOUNTER Process_NonpagedByte;
-    PdhAddCounter(hQuery, L"\\Process(MT_ChattingServer)\\Pool Nonpaged Bytes", NULL, &Process_NonpagedByte);
+    PdhAddCounter(hQuery, L"\\Process(CGameServer_Echo)\\Pool Nonpaged Bytes", NULL, &Process_NonpagedByte);
 
     PDH_HCOUNTER Available_Byte;
     PdhAddCounter(hQuery, L"\\Memory\\Available MBytes", NULL, &Available_Byte);
@@ -35,30 +87,18 @@ void CTestServer::MonitorThread()
     PDH_HCOUNTER Nonpaged_Byte;
     PdhAddCounter(hQuery, L"\\Memory\\Pool Nonpaged Bytes", NULL, &Nonpaged_Byte);
 
-    PDH_HCOUNTER hBytesRecv, hBytesSent, hBytesTotal;
-    PDH_HCOUNTER hBytesRecv1, hBytesSent1, hBytesTotal1;
-    PDH_HCOUNTER hBytesRecv2, hBytesSent2, hBytesTotal2;
 
-    PDH_HCOUNTER hTcp4Retrans, hTcp4SegSent, hTcp4SegRecv;
-
-    PdhAddCounter(hQuery, (L"\\Network Interface(Realtek PCIe GbE Family Controller)\\Bytes Received/sec"), 0, &hBytesRecv);
-    PdhAddCounter(hQuery, (L"\\Network Interface(Intel[R] I210 Gigabit Network Connection)\\Bytes Received/sec"), 0, &hBytesRecv1);
-    PdhAddCounter(hQuery, (L"\\Network Interface(Intel[R] I210 Gigabit Network Connection _2)\\Bytes Received/sec"), 0, &hBytesRecv2);
-
-    PdhAddCounter(hQuery, (L"\\Network Interface(Realtek PCIe GbE Family Controller)\\Bytes Sent/sec"), 0, &hBytesSent);
-    PdhAddCounter(hQuery, (L"\\Network Interface(Intel[R] I210 Gigabit Network Connection)\\Bytes Sent/sec"), 0, &hBytesSent1);
-    PdhAddCounter(hQuery, (L"\\Network Interface(Intel[R] I210 Gigabit Network Connection _2)\\Bytes Sent/sec"), 0, &hBytesSent2);
-
-    PdhAddCounter(hQuery, (L"\\Network Interface(Realtek PCIe GbE Family Controller)\\Bytes Total/sec"), 0, &hBytesTotal);
-    PdhAddCounter(hQuery, (L"\\Network Interface(Intel[R] I210 Gigabit Network Connection)\\Bytes Total/sec"), 0, &hBytesTotal1);
-    PdhAddCounter(hQuery, (L"\\Network Interface(Intel[R] I210 Gigabit Network Connection _2)\\Bytes Total/sec"), 0, &hBytesTotal2);
+    PDH_HCOUNTER hTcp4Retrans;
 
     PdhAddCounter(hQuery, L"\\TCPv4\\Segments Retransmitted/sec", 0, &hTcp4Retrans);
-    PdhAddCounter(hQuery, L"\\TCPv4\\Segments Sent/sec", 0, &hTcp4SegSent);
-    PdhAddCounter(hQuery, L"\\TCPv4\\Segments Received/sec", 0, &hTcp4SegRecv);
+
 
     PdhCollectQueryData(hQuery);
     CCpuUsage CPUTime;
+
+    SYSTEM_INFO si;
+    GetSystemInfo(&si);
+    const double logical = (double)si.dwNumberOfProcessors;
 
     {
         PDH_FMT_COUNTERVALUE Process_PrivateByteVal;
@@ -76,29 +116,100 @@ void CTestServer::MonitorThread()
         nextTime = currentTime;
         LONG64 TotalTPS = 0;
 
+        //while (1)
+        //{
+        //    nextTime += 1000;
+
+        //    printf(" %-25s : %10lld\n", "PacketPool", stTlsObjectPool<CMessage>::instance.m_TotalCount);
+        //    currentTime = timeGetTime();
+        //    if (nextTime > currentTime)
+        //        Sleep(nextTime - currentTime);
+        //}
+        
+        //lock을 획득하고 모든 Zone을 돔.
+
+
         while (1)
         {
             nextTime += 1000;
 
-            printf(" %-25s : %10lld\n", "PacketPool", stTlsObjectPool<CMessage>::instance.m_TotalCount);
-            currentTime = timeGetTime();
-            if (nextTime > currentTime)
-                Sleep(nextTime - currentTime);
-        }
-        /*
-        while (bMonitorThreadOn)
-        {
-            nextTime += 1000;
             {
-                LONG64 old_UpdateTPS = m_UpdateTPS;
-                UpdateTPS = old_UpdateTPS - before_UpdateTPS;
-                before_UpdateTPS = old_UpdateTPS;
+                // ull SessionCnt; // Network에서의 Session 수
+                // ull AuthCnt;    // 인증 대기 Session수
+                // ull UserCnt;    // 인증이 완료된 Session 수
+
+                //// 이전 프레임에서의 차이를 이용
+                // ull old_Accept;  // 이전 프레임에서 Accept를 한 카운트.
+                // ull old_RecvCnt; // 이전 프레임에서 OnRecv를 한 카운트.
+
+                //ull current_Accept;  // 현재 프레임에서 Accept를 한 카운트.
+                //ull current_RecvCnt; // 현재 프레임에서 OnRecv를 한 카운트.
+
             }
-            for (int i = 0; i <= m_WorkThreadCnt; i++)
+
+            SessionCnt  =   GetSessionCount();
+            current_RecvCnt = _RecvTotalCnt; 
+
+            //login Thread 정보셋팅
             {
-                LONG64 old_arrTPS = arrTPS[i];
-                Send_arrTPS[i] = old_arrTPS - before_arrTPS[i];
-                before_arrTPS[i] = old_arrTPS;
+                current_LoginThreadFrameCnt = loginZone->_UpdateFrame;
+
+                AuthCnt = loginZone->Auth_SessionCnt;
+                UserCnt = loginZone->User_SessionCnt;
+
+                current_Accept = loginZone->AcceptTps;
+
+                //Login요청 패킷
+                current_GameServer_msgTypeCntArr[0] = loginZone->_msgTypeCntArr[0];
+            }
+
+            //Echo Thread 정보
+            {
+                current_EchoThreadFrameCnt = echoZone->_UpdateFrame;
+
+                current_GameServer_msgTypeCntArr[1] = echoZone->_msgTypeCntArr[0];
+
+                current_GameContents_msgTypeCntArr[0] = echoZone->_msgTypeCntArr[1]; // 에코라 Recv,Send 동일
+                current_GameContents_msgTypeCntArr[1] = echoZone->_msgTypeCntArr[2]; // 하트비트
+            }
+  
+
+
+
+            
+            // 계산 영역
+            {
+                AcceptTps = current_Accept - old_Accept;
+                RecvTps = current_RecvCnt - old_RecvCnt;
+
+                LoginTps = current_GameServer_msgTypeCntArr[0] - old_GameServer_msgTypeCntArr[0];
+                ResLoginTps = current_GameServer_msgTypeCntArr[1] - old_GameServer_msgTypeCntArr[1];
+
+
+                EchoTps = current_GameContents_msgTypeCntArr[0] - old_GameContents_msgTypeCntArr[0];
+                HeartTps = current_GameContents_msgTypeCntArr[1] - old_GameContents_msgTypeCntArr[1];
+
+
+                // 전 프레임으로 초기화
+                old_Accept = current_Accept;
+                old_RecvCnt = current_RecvCnt;
+
+                old_GameServer_msgTypeCntArr[0] = current_GameServer_msgTypeCntArr[0];
+                old_GameServer_msgTypeCntArr[1] = current_GameServer_msgTypeCntArr[1];
+
+
+                old_GameContents_msgTypeCntArr[0] = current_GameContents_msgTypeCntArr[0];
+                old_GameContents_msgTypeCntArr[1] = current_GameContents_msgTypeCntArr[1];
+
+
+                // Thread TPS
+                LoginFPS = current_LoginThreadFrameCnt - old_LoginThreadFrameCnt;
+                EchoFPS = current_EchoThreadFrameCnt - old_EchoThreadFrameCnt;
+
+                old_LoginThreadFrameCnt = current_LoginThreadFrameCnt;
+                old_EchoThreadFrameCnt = current_EchoThreadFrameCnt;
+
+               
             }
 
             printf(" ============================================ Config ============================================ \n");
@@ -106,68 +217,35 @@ void CTestServer::MonitorThread()
             printf("%-25s : %10d  %-25s : %10lld\n", "WorkerThread Cnt", m_WorkThreadCnt, "SessionNum", GetSessionCount());
 
             printf("%-25s : %10d  %-25s : %10d \n", "ZeroCopy", bZeroCopy, "Nodelay", bNoDelay);
-            printf("%-25s : %10zu  %-25s : %10d\n", "MaxSessions", MaxSessions, "MaxPlayers", m_maxPlayers);
+            printf("%-25s : %10zu \n", "MaxSessions", MaxSessions);
 
             printf(" \n========================================= Server Runtime Status ====================================== \n");
 
             printf(" %-25s : %10llu  \n", "Total Accept", getTotalAccept());
             printf(" %-25s : %10lld  \n", "MyCustomMessage_Cnt", getNetworkMsgCount());
-            printf(" %-25s : %10lld  %-25s : %10lld\n", "PrePlayer Count", GetprePlayer_hash(),
-                   "Player Count", GetPlayerCount());
+            printf(" %-25s : %10lld  %-25s : %10lld\n", "PrePlayer Count", AuthCnt,"Player Count", UserCnt);
 
             printf(" %-25s : %10lld\n", "PacketPool", stTlsObjectPool<CMessage>::instance.m_TotalCount);
             printf(" %-25s : %10lld\n", "Total iDisconnectCount", iDisCounnectCount);
+
             printf(" %100s \n", ProfilerFormat[Profiler::bOn]);
 
             printf(" ============================================ Contents Thread TPS ========================================== \n");
 
-            printf(" Accept TPS           : %lld\n", Send_arrTPS[0]);
-            printf(" Update TPS           : %lld\n", UpdateTPS);
+            printf(" Accept TPS           : %lld\n", AcceptTps);
+            printf(" Recv TPS           : %lld\n",   RecvTps);
+            printf(" Send TPS           : %lld\n", EchoTps + ResLoginTps + HeartTps);
 
-            {
-                LONG64 old_RecvTPS = m_RecvTPS;
-                RecvTPS = old_RecvTPS - before_RecvTPS;
-                before_RecvTPS = old_RecvTPS;
-                printf(" Recv TPS : %lld\n", RecvTPS);
-            }
-            {
-                TotalTPS = 0;
-                for (int i = 1; i <= m_WorkThreadCnt; i++)
-                {
-                    TotalTPS += Send_arrTPS[i];
-                    printf("%20s %10lld \n", "Send TPS :", Send_arrTPS[i]);
-                }
-                printf(" ===================================================================================================== \n");
-                printf("%35s %10lld\n", "Total Send TPS :", TotalTPS);
-                printf(" ===================================================================================================== \n");
-            }
+            printf(" ============================================ Contents Thread FPS ========================================== \n");
+            printf(" LoginFPS           : %lld\n", LoginFPS);
+            printf(" EchoFPS           : %lld\n", EchoFPS);
 
-            {
+            printf(" ============================================ Packet TPS ========================================== \n");
+            printf(" en_PACKET_CS_GAME_REQ_LOGIN          : %lld \n", LoginTps);
+            printf(" en_PACKET_CS_GAME_RES_LOGIN          : %lld \n", ResLoginTps);
 
-                // Contents 정보 Print
-                printf("%15s %10s %05d  %10s %05lld\n",
-                       "Balance ",
-                       "Player :", balanceVec[0],
-                       "UpdateMessage_Queue", m_CotentsQ_vec[0].m_size);
-                printf(" ===================================================================================================== \n");
-                for (int idx = 1; idx < balanceVec.size(); idx++)
-                {
-                    printf("%15s %10s %05d  %10s %05lld\n",
-                           "Contetent",
-                           "Player :", balanceVec[idx],
-                           "UpdateMessage_Queue", m_CotentsQ_vec[idx].m_size);
-                }
-            }
-            printf(" ===================================================================================================== \n");
-
-            // 메세지 별
-            for (int i = 3; i < en_PACKET_CS_CHAT__Max - 1; i++)
-            {
-                LONG64 old_RecvMsg = m_RecvMsgArr[i];
-                RecvMsgArr[i] = old_RecvMsg - before_RecvMsgArr[i];
-                before_RecvMsgArr[i] = old_RecvMsg;
-                MsgTypePrint(i, RecvMsgArr[i]);
-            }
+            printf(" en_PACKET_CS_GAME_REQ_ECHO          : %lld \n",   EchoTps);
+            printf(" en_PACKET_CS_GAME_REQ_HEARTBEAT          : %lld \n",   HeartTps);
 
             {
                 // 1초마다 갱신
@@ -196,61 +274,7 @@ void CTestServer::MonitorThread()
                 PdhGetFormattedCounterValue(Nonpaged_Byte, PDH_FMT_LARGE, NULL, &Nonpaged_Byte_ByteVal);
                 wprintf(L"Nonpaged_Byte_ByteVal : %lld Byte\n", Nonpaged_Byte_ByteVal.largeValue);
             }
-            // NetWork
-            {
-                PdhGetFormattedCounterValue(hBytesRecv, PDH_FMT_DOUBLE, NULL, &recvVal[0]);
-                PdhGetFormattedCounterValue(hBytesRecv1, PDH_FMT_DOUBLE, NULL, &recvVal[1]);
-                PdhGetFormattedCounterValue(hBytesRecv2, PDH_FMT_DOUBLE, NULL, &recvVal[2]);
 
-                PdhGetFormattedCounterValue(hBytesSent, PDH_FMT_DOUBLE, NULL, &sentVal[0]);
-                PdhGetFormattedCounterValue(hBytesSent1, PDH_FMT_DOUBLE, NULL, &sentVal[1]);
-                PdhGetFormattedCounterValue(hBytesSent2, PDH_FMT_DOUBLE, NULL, &sentVal[2]);
-
-                PdhGetFormattedCounterValue(hBytesTotal, PDH_FMT_DOUBLE, NULL, &totalVal[0]);
-                PdhGetFormattedCounterValue(hBytesTotal1, PDH_FMT_DOUBLE, NULL, &totalVal[1]);
-                PdhGetFormattedCounterValue(hBytesTotal2, PDH_FMT_DOUBLE, NULL, &totalVal[2]);
-
-                PdhGetFormattedCounterValue(hTcp4Retrans, PDH_FMT_DOUBLE, NULL, &vTcp4Retr);
-                PdhGetFormattedCounterValue(hTcp4SegSent, PDH_FMT_DOUBLE, NULL, &vTcp4Sent);
-                PdhGetFormattedCounterValue(hTcp4SegRecv, PDH_FMT_DOUBLE, NULL, &vTcp4Recv);
-
-                double tcp4RetrRatio = 0.0;
-                if (vTcp4Sent.doubleValue > 0.0)
-                    tcp4RetrRatio = (vTcp4Retr.doubleValue / vTcp4Sent.doubleValue) * 100.0;
-
-                wprintf(L"\n ============================================ Network Usage (Bytes/sec) ============================================ \n");
-                wprintf(L"%20s %15s %15s %15s\n",
-                        L"Adapter",
-                        L"Recv(B/s)",
-                        L"Sent(B/s)",
-                        L"Total(B/s)");
-                wprintf(L"--------------------------------------------------------------------------\n");
-
-                wprintf(L"%-40s %15.0f %15.0f %15.0f\n",
-                        L"Realtek PCIe GbE Family Controller",
-                        recvVal[0].doubleValue,
-                        sentVal[0].doubleValue,
-                        totalVal[0].doubleValue);
-
-                wprintf(L"%-40s %15.0f %15.0f %15.0f\n",
-                        L"Intel[R] I210 Gigabit Network Connection",
-                        recvVal[1].doubleValue,
-                        sentVal[1].doubleValue,
-                        totalVal[1].doubleValue);
-
-                wprintf(L"%-40s %15.0f %15.0f %15.0f\n",
-                        L"Intel[R] I210 Gigabit Network Connection _2",
-                        recvVal[2].doubleValue,
-                        sentVal[2].doubleValue,
-                        totalVal[2].doubleValue);
-
-                wprintf(L"\n ============================================ TCP Retransmission ============================================ \n");
-                wprintf(L"TCPv4 Segments Sent/sec          : %.2f\n", vTcp4Sent.doubleValue);
-                wprintf(L"TCPv4 Segments Retransmitted/sec : %.2f\n", vTcp4Retr.doubleValue);
-                wprintf(L"TCPv4 Retrans Ratio              : %.2f %%\n", tcp4RetrRatio);
-
-                wprintf(L" ============================================================================================================== \n");
-            }
             currentTime = timeGetTime();
 
             time_t currenttt;
@@ -260,19 +284,21 @@ void CTestServer::MonitorThread()
                 // InterlockedExchange((DWORD *)&g_MonitorData[enMonitorType::TimeStamp], currenttt);
                 int totalCountentSize = 0;
 
-                for (auto &contentQ : m_CotentsQ_vec)
-                {
-                    totalCountentSize += contentQ.m_size;
-                }
+
                 g_MonitorData[enMonitorType::TimeStamp] = (int)currenttt;
                 g_MonitorData[enMonitorType::On] = bOn;
                 g_MonitorData[enMonitorType::Cpu] = (int)CPUTime.ProcessTotal();
                 g_MonitorData[enMonitorType::Memory] = (int)(Process_PrivateByteVal.largeValue / 1024 / 1024);
                 g_MonitorData[enMonitorType::SessionCnt] = (int)GetSessionCount();
-                g_MonitorData[enMonitorType::UserCnt] = (int)GetAccountNo_hash();
-                g_MonitorData[enMonitorType::TotalSendTps] = (int)TotalTPS;
-                g_MonitorData[enMonitorType::TotalPackPool_Cnt] = (int)stTlsObjectPool<CMessage>::instance.m_TotalCount;
-                g_MonitorData[enMonitorType::UpdatePackPool_Cnt] = totalCountentSize;
+                g_MonitorData[enMonitorType::UserCnt] = (int)UserCnt;
+                g_MonitorData[enMonitorType::AcceptTPS] = (int)AcceptTPS;
+                g_MonitorData[enMonitorType::RecvTPS] = (int)RecvTps;
+                g_MonitorData[enMonitorType::SendTPS] = (int)TotalTPS;
+                g_MonitorData[enMonitorType::DB_WRITE_TPS] = (int)0;
+                g_MonitorData[enMonitorType::DB_WRITE_MSG] = (int)0;
+                g_MonitorData[enMonitorType::AUTH_THREAD_FPS] = (int)LoginFPS;
+                g_MonitorData[enMonitorType::GAME_THREAD_FPS] = (int)EchoFPS;
+                g_MonitorData[enMonitorType::PACKET_POOL] = (int)stTlsObjectPool<CMessage>::instance.m_TotalCount;
 
                 SetEvent(g_hMonitorEvent);
             }
@@ -280,6 +306,6 @@ void CTestServer::MonitorThread()
             if (nextTime > currentTime)
                 Sleep(nextTime - currentTime);
         }
-        */
+        
     }
 }

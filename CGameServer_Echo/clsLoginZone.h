@@ -38,7 +38,7 @@ class clsLoginZone : public IZone
 
     void REQ_LOGIN(ull SessionID, CMessage *msg, INT64 AccountNo, WCHAR *SessionKey, WORD wType = en_PACKET_CS_GAME_REQ_LOGIN, BYTE bBroadCast = false, std::vector<ull> *pIDVector = nullptr, size_t wVectorLen = 0);
 
-
+    // TODO : private로 바꾸기
     // 인증된 Session 
     std::unordered_map<ull, stPlayer *> SessionID_hash;
     std::unordered_map<INT64, stPlayer *> Account_hash;
@@ -64,5 +64,7 @@ class clsLoginZone : public IZone
     
     // Frame 시 ++하기 1초의 구별은 모니터링 쓰레드에서 구현
     ull LoginThreadFPS = 0;
-    
+
+    ull AcceptTps = 0;
+    ull _UpdateFrame = 0;
 };

@@ -16,10 +16,10 @@ class CTestServer : public CZoneServer
         : CZoneServer(iEncording)
     {
         // LoginZone은 하나만 등록해야하고.
-        RegisterLoginZone<clsLoginZone>(L"LoginServer", 40, (ZoneKeyType)enZoneType::LoginZone);
+        RegisterLoginZone<clsLoginZone>(L"LoginServer", 10000, (ZoneKeyType)enZoneType::LoginZone);
 
         // 동일한 방식으로 상속받아 구현한 class를 여기에 등록한다.
-        RegisterZone<clsEchoZone>(L"Echo", 20, (ZoneKeyType)enZoneType::EchoZone);
+        RegisterZone<clsEchoZone>(L"Echo", 0, (ZoneKeyType)enZoneType::EchoZone);
 
         _MonitorThread = WinThread(&CTestServer::MonitorThread, this);
         

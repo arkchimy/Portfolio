@@ -204,9 +204,7 @@ bool CLanClient::Connect(wchar_t *ServerAddress, short Serverport, wchar_t *Bind
     CreateIoCompletionPort((HANDLE)session.m_sock, _hIOCP, (ULONG_PTR)&session, 0);
 
     RecvPacket(session);
-    CSystemLog::GetInstance()->Log(L"CLanClient_IoCount", en_LOG_LEVEL::ERROR_Mode, L" Connect RecvPacket SessiondID : %05lld ,IOcount : %lld", local_SeqID, session.m_ioCount);
     OnEnterJoinServer(local_SeqID);
-    CSystemLog::GetInstance()->Log(L"CLanClient_IoCount", en_LOG_LEVEL::ERROR_Mode, L" Connect OnEnterJoinServer SessiondID : %05lld ,IOcount : %lld", local_SeqID, session.m_ioCount);
 
     return true;
 }

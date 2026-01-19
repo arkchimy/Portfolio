@@ -12,8 +12,9 @@ void clsEchoZone::OnEnterWorld(ull SessionID, SOCKADDR_IN &addr, void *pPlayer)
 
         msg = (CMessage *)stTlsObjectPool<CMessage>::Alloc();
         RES_LOGIN(SessionID, msg, 1, player->_AccountNo);
-        
+        _msgTypeCntArr[ReqLoginPack]++;
     }
+
 }
 
 void clsEchoZone::OnRecv(ull SessionID, CMessage *msg)
@@ -42,6 +43,8 @@ void clsEchoZone::OnRecv(ull SessionID, CMessage *msg)
 
 void clsEchoZone::OnUpdate()
 {
+    _UpdateFrame++;
+
     DWORD currentTime = timeGetTime();
     DWORD distance;
 
