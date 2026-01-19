@@ -5,6 +5,7 @@
 #include "CTestServer.h"
 #include "CrushDump_lib/CrushDump_lib.h"
 
+#include "MonitorData.h"
 
 int main()
 {
@@ -57,6 +58,9 @@ int main()
 
     server->Start(bindAddr, bindPort, iZeroCopy, WorkerThreadCnt, reduceThreadCount, NoDelay, maxSessions);
 
+
+    ClientFunc();
+    
     while (1)
     {
 

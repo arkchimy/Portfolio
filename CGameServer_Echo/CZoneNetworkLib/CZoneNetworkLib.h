@@ -3,6 +3,17 @@
 #define WIN32_LEAN_AND_MEAN             // 거의 사용되지 않는 내용을 Windows 헤더에서 제외합니다.
 #include "CNetworkLib/CNetworkLib.h"
 
+/*
+* 
+* 해당 구조의 핵심
+*  MoveZone을 하여 Zone을 옮길때 Enter쪽에서는 SessionID밖에 알지못한다.
+*  Player를 가져오는 방법.
+* 
+*  중복 로그인의 처리방안. 
+*  Player의 반환시기
+* 
+* 
+*/
 //Zone을 구분할 유일한 Key값을 저장하는 자료형타입.
 using ZoneKeyType = uint8_t;
 
@@ -13,6 +24,7 @@ enum enZoneMsgType : uint8_t
 };
 class CZoneServer : public CLanServer
 {
+
   protected:
     CZoneServer(int iEncoding)
         : CLanServer(iEncoding)
@@ -47,6 +59,8 @@ class CZoneServer : public CLanServer
     void RequeseMoveZone(ull SessionID, ZoneKeyType targetZone,void* pPlayer);
 
     //////////////////////////////////////////
+    virtual BOOL Start(const wchar_t *bindAddress, short port, int ZeroCopy, int WorkerCreateCnt, int maxConcurrency, int useNagle, int maxSessions);
+
     protected:
     ZoneSet *m_LoginZone = nullptr;
 
@@ -56,9 +70,9 @@ class CZoneServer : public CLanServer
     ull _bLoginZoneChk = false;
 
   public:
-    //  동기화 객체의 필요성 : 중간에 Zone을 생성하여 등록하는 경우
-    // _zoneMap의 iterator가 틀어질 수도있음.
 
+    //  동기화 객체의 필요성 : 여러쓰레드에서 Regist하면
+    // _zoneMap의 iterator가 틀어질 수도있음.
     SharedMutex _zoneMutex;
     std::map<ZoneKeyType, ZoneSet *> _zoneMap;
 
