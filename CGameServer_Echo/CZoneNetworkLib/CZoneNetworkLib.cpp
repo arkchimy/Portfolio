@@ -15,7 +15,7 @@ void fnCZoneNetworkLib()
         {
           public:
             // 이 함수를 컨텐츠 개발자가 구현해야함.
-            virtual void OnEnterWorld(ull SessionId, SOCKADDR_IN &addr){};
+            virtual void OnEnterWorld(ull SessionID, SOCKADDR_IN &addr, void *pPlayer = nullptr){};
             virtual void OnRecv(ull SessionId, struct CMessage *msg) {};
             virtual void OnUpdate() {};
             virtual void OnLeaveWorld(ull SessiondId){};
@@ -26,7 +26,7 @@ void fnCZoneNetworkLib()
         {
           public:
             // 이 함수를 컨텐츠 개발자가 구현해야함.
-            virtual void OnEnterWorld(ull SessionId, SOCKADDR_IN &addr){};
+            virtual void OnEnterWorld(ull SessionID, SOCKADDR_IN &addr, void *pPlayer = nullptr) {};
             virtual void OnRecv(ull SessionId, struct CMessage *msg) {};
             virtual void OnUpdate() {};
             virtual void OnLeaveWorld(ull SessiondId){};
@@ -92,7 +92,7 @@ void CZoneServer::OnRelease(ull SessionID)
 
 
 
-void CZoneServer::RequeseMoveZone(ull SessionID, ZoneKeyType targetZone)
+void CZoneServer::RequeseMoveZone(ull SessionID, ZoneKeyType targetZone, void *pPlayer)
 {
     //  이 단계에서 session이 Release될수 있을까?
     // RequeseMoveZone 의 호출은 속해있는 Zone 내부에서 호출한 것.
@@ -100,9 +100,13 @@ void CZoneServer::RequeseMoveZone(ull SessionID, ZoneKeyType targetZone)
 
     clsSession &session = sessions_vec[SessionID >> 47];
 
-    {
-        std::shared_lock<SharedMutex> lock(_zoneMutex);
+    // 매우 치명적인 상황.
+    if (SessionID != session.m_SeqID)
+        __debugbreak();
 
+    session.pPlayer = pPlayer;
+
+    {
         auto iter = _zoneMap.find(targetZone);
         if (iter == _zoneMap.end())
         {

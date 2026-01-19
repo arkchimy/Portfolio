@@ -1002,4 +1002,5 @@ void clsSession::Release()
         ZeroMemory(&m_sendOverlapped, sizeof(OVERLAPPED));
     }
     m_recvBuffer.ClearBuffer();
+    pPlayer = nullptr;
 }

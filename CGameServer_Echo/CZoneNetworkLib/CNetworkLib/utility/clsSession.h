@@ -57,7 +57,7 @@ struct stReleaseOverlapped : stOverlapped
 class IZone
 {
   public:
-    virtual void OnEnterWorld(ull SessionID, SOCKADDR_IN &addr) = 0;
+    virtual void OnEnterWorld(ull SessionID, SOCKADDR_IN &addr, void *pPlayer) = 0;
     virtual void OnRecv(ull SessionID, struct CMessage *msg) = 0;
     virtual void OnUpdate() = 0;
     virtual void OnLeaveWorld(ull SessionID) = 0;
@@ -142,4 +142,6 @@ class clsSession
     // EnterZone 을 할떄마다 Addr을 msg를 통한 전달이 불필요해보임.
     SOCKADDR_IN _addr;
 
+    // 해당 변수는 SessionID를 들고 Player포인터를 찾을 수 없을때를 위해 사용한다.
+    void *pPlayer = nullptr;
 };

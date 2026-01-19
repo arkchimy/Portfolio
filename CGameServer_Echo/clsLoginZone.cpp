@@ -9,8 +9,10 @@
 thread_local cpp_redis::client *client;
 thread_local bool bRedisOnce ;
 
-void clsLoginZone::OnEnterWorld(ull SessionID, SOCKADDR_IN &addr)
+void clsLoginZone::OnEnterWorld(ull SessionID, SOCKADDR_IN &addr, void *pPlayer)
 {
+    stPlayer *player;
+
     // 한번 만.
     if (bRedisOnce == false)
     {
@@ -20,10 +22,28 @@ void clsLoginZone::OnEnterWorld(ull SessionID, SOCKADDR_IN &addr)
         client->connect(_server->RedisIpAddress, 6379);
     }
 
-    stPlayer *player;
+
+    if (pPlayer != nullptr)
+    {
+        // 다른 Zone에 존재하다가 LoginZone으로 삭제를 위해 넘어온 경우.
+        auto prePlayerIter = prePlayer_hash.find(SessionID);// 없어야함.
+        auto sessionIDIter = SessionID_hash.find(SessionID); // 있어야함.
+
+        // 이미 있었다면 문제임
+        if (prePlayerIter != prePlayer_hash.end() || sessionIDIter == SessionID_hash.end())
+        {
+            __debugbreak();
+        }
+
+        player = static_cast<stPlayer *>(pPlayer);
+        prePlayer_hash.insert({SessionID, player});
+
+        return;
+    }
+
 
     {
-        std::lock_guard<SharedMutex> lock(_SessionTable_Mutex);
+  
         auto prePlayerIter = prePlayer_hash.find(SessionID);
         auto sessionIDIter = SessionID_hash.find(SessionID);
 
@@ -32,22 +52,19 @@ void clsLoginZone::OnEnterWorld(ull SessionID, SOCKADDR_IN &addr)
         {
             __debugbreak();
         }
-
-        player = (stPlayer *)player_pool.Alloc();
-
-        player->_lastRecvTime = timeGetTime();
-        player->_addr = addr;
-        player->_SessionID = SessionID;
-
+        player = (stPlayer*)player_pool.Alloc();
         prePlayer_hash.insert({SessionID, player});
+
     }
 }
 
 void clsLoginZone::OnRecv(ull SessionID, CMessage *msg)
 {
+    // 최근에온 메세지에 대한 시간체크 때문에 Player를 찾아야 함.
     auto iter = prePlayer_hash.find(SessionID);
     if (iter == prePlayer_hash.end())
     {
+        // Session마다 msg큐가 빌때까지 돌고있기에. 
         stTlsObjectPool<CMessage>::Release(msg);
         _server->Disconnect(SessionID);
 
@@ -87,11 +104,11 @@ void clsLoginZone::OnUpdate()
 
 void clsLoginZone::OnLeaveWorld(ull SessionID)
 {
+    //LoginZone의 연결을 의미하는 prePlayer_Hash에서만 제거.
     auto iter = prePlayer_hash.find(SessionID);
-
-    // 없다면 문제임
     if (iter == prePlayer_hash.end())
     {
+        // 없을 수가 없음.
         __debugbreak();
     }
     prePlayer_hash.erase(iter);
@@ -100,45 +117,43 @@ void clsLoginZone::OnLeaveWorld(ull SessionID)
 void clsLoginZone::OnDisConnect(ull SessionID)
 {
     stPlayer *player;
+    INT64 AccountNo;
 
     auto iter = prePlayer_hash.find(SessionID);
     //CSystemLog::GetInstance()->Log(L"OnDisConnect_NoError", en_LOG_LEVEL::ERROR_Mode,
     //                               L"LoginZone_DisConnect SessionID : %lld AccountNo : %lld", SessionID , iter->second->_AccountNo);
-    //CSystemLog::GetInstance()->Log(L"OnDisConnect", en_LOG_LEVEL::ERROR_Mode, L"LoginZone_DisConnect %lld", SessionID);
-    // 없다면 문제임
+
     if (iter == prePlayer_hash.end())
     {
+        // 없으면 안 됨.
         __debugbreak();
     }
     player = iter->second;
-
-
-    INT64 AccountNo;
+    AccountNo = player->_AccountNo;
 
     // 중복제거로인한 다른 sessionID가 들어가있을수 있음.
     if (player->_SessionID == SessionID)
         prePlayer_hash.erase(iter);
+
     {
-        std::lock_guard<SharedMutex> lock(_SessionTable_Mutex);
         auto iter = SessionID_hash.find(SessionID);
-        if (iter == SessionID_hash.end())
-        {
-            // 삭제하려는데 없음.
-            // LoginPacket을 보내기전에 끊은 경우. 정상인 케이스
-            // __debugbreak();
-        }
-        else
+        // Login인증 패킷이 오기전에 연결이 끊기는 경우가 존재.
+        if (iter != SessionID_hash.end())
         {
             SessionID_hash.erase(iter);
-        }
-
-        AccountNo = player->_AccountNo;
-        {
             auto iter = Account_hash.find(AccountNo);
             // 중복 로그인이라면 있던 player를 끊음.
+            // 때문에 iter가 갖고있는 player의 sessionID가 새로 들어온 녀석일 수 있음.
             if (iter != Account_hash.end())
             {
-                Account_hash.erase(iter);
+                if( SessionID == iter->second->_SessionID)
+                    Account_hash.erase(iter);
+            }
+            else
+            {
+                //SessionID_hash는 추가되었는데 Account_hash에 남는경우는
+                // 말도안되는 상황.
+                __debugbreak();
             }
         }
 
@@ -273,14 +288,17 @@ void clsLoginZone::REQ_LOGIN(ull SessionID, CMessage *msg, INT64 AccountNo, WCHA
     }
 
     {
-        std::lock_guard<SharedMutex> lock(_SessionTable_Mutex);
-
+        // 요청 메세지로온 AccounNo가 연결된 Session 중에 
+        // 현재 존재하는지 체크.
         auto iter = Account_hash.find(AccountNo);
         // 중복 로그인이라면 있던 player를 끊음.
         if (iter != Account_hash.end())
         {
             player = iter->second;
+
+            // 이 구간에서 직접 Account_hash에 대한 부분을 지움.
             _server->Disconnect(player->_SessionID);
+            
             Account_hash.erase(iter);
             CSystemLog::GetInstance()->Log(L"OnDisConnect", en_LOG_LEVEL::ERROR_Mode, L"LoginZone_DisConnect %20s SessionID : %lld AccountNo : %lld",
                                            player->_SessionID,AccountNo);
@@ -290,13 +308,12 @@ void clsLoginZone::REQ_LOGIN(ull SessionID, CMessage *msg, INT64 AccountNo, WCHA
         auto prePlayeriter = prePlayer_hash.find(SessionID);
         if (prePlayeriter == prePlayer_hash.end())
         {
-            //  LoginPacket를 두번 보낸 공격일 수 있음.
+            // LoginPack을 받으면 바로 제거후  Zone을 옮겨주므로 여기 올 수가 없음.
             // TODO : 공격이 아니라면 있을 수 없으므로 일단은 납둠.
             __debugbreak();
         }
         player = prePlayeriter->second;
         player->_AccountNo = AccountNo;
-        Account_hash.insert({AccountNo, player});
 
         {
 
@@ -307,8 +324,13 @@ void clsLoginZone::REQ_LOGIN(ull SessionID, CMessage *msg, INT64 AccountNo, WCHA
                 // 이제 추가하는 것이라 있으면 안됨.
                 __debugbreak();
             }
+            //ZoneSession에서 제거 후 Account와 SessionID 추가.
+            // prePlayer_hash.erase(prePlayeriter); <= 지우는 것은 Leave에서
+
             SessionID_hash.insert({SessionID, player});
-            _server->RequeseMoveZone(SessionID, (ZoneKeyType)enZoneType::EchoZone);
+            Account_hash.insert({AccountNo, player});
+
+            _server->RequeseMoveZone(SessionID, (ZoneKeyType)enZoneType::EchoZone,player);
         }
     }
 }

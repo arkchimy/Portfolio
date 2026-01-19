@@ -24,10 +24,13 @@ class clsLoginZone : public IZone
 
   public:
     // 이 함수를 컨텐츠 개발자가 구현해야함.
-    virtual void OnEnterWorld(ull SessionID, SOCKADDR_IN &addr);
+    virtual void OnEnterWorld(ull SessionID, SOCKADDR_IN &addr,void* pPlayer = nullptr);
     virtual void OnRecv(ull SessionID, struct CMessage *msg);
     virtual void OnUpdate();
+
+    // 연결 끊김이 아닌. Zone을 옮길때 호출하는 함수. 
     virtual void OnLeaveWorld(ull SessionID);
+    // 연결 끊김을 의미하는 함수.
     virtual void OnDisConnect(ull SessionID);
 
 
@@ -36,18 +39,14 @@ class clsLoginZone : public IZone
     void REQ_LOGIN(ull SessionID, CMessage *msg, INT64 AccountNo, WCHAR *SessionKey, WORD wType = en_PACKET_CS_GAME_REQ_LOGIN, BYTE bBroadCast = false, std::vector<ull> *pIDVector = nullptr, size_t wVectorLen = 0);
 
 
- 
-    // LoginPack이 두번 올 가능성.
-    SharedMutex _SessionTable_Mutex;
-
-    // 해당 Hash 는 다른 Zone에서도 접근함.
+    // 인증된 Session 
     std::unordered_map<ull, stPlayer *> SessionID_hash;
-    // 중복 로그인 주의
-
     std::unordered_map<INT64, stPlayer *> Account_hash;
-    // 인증전  SessionID와 시간
+
+    // LoginZone에 연결된 미 인증 Session  인증이 될 경우 해당 해시에서 제거된다.
     std::unordered_map<ull, stPlayer *> prePlayer_hash;
 
+    // 해당 Player 포인터를 다른존에 어떻게 넘겨줄 것인가.
     CObjectPool<stPlayer> player_pool;
 
     private:

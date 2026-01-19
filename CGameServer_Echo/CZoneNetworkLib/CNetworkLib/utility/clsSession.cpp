@@ -56,7 +56,7 @@ void ZoneSet::ZoneThread()
                 stTlsObjectPool<CMessage>::Release(msg);
             }
             sessions.push_back(session);
-            m_zone->OnEnterWorld(SessionId, session->_addr);
+            m_zone->OnEnterWorld(SessionId, session->_addr, session->pPlayer);
          
         }
         for (clsSession *session : sessions)
@@ -152,7 +152,7 @@ void ZoneSet::ZoneTimerThread()
                 stTlsObjectPool<CMessage>::Release(msg);
             }
             sessions.push_back(session);
-            m_zone->OnEnterWorld(SessionId, session->_addr);
+            m_zone->OnEnterWorld(SessionId, session->_addr, session->pPlayer);
      
 
         }

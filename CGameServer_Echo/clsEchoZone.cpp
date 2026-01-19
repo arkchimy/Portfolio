@@ -1,41 +1,18 @@
 #include "clsEchoZone.h"
 #include "clsLoginZone.h"
 
-void clsEchoZone::OnEnterWorld(ull SessionID, SOCKADDR_IN &addr)
+void clsEchoZone::OnEnterWorld(ull SessionID, SOCKADDR_IN &addr, void *pPlayer)
 {
-    clsLoginZone *loginZone;
+    // Player의 포인터를 어디서 가져올지가 문제 임.
     CMessage *msg;
-
+    // session이 player pointer를 들고 있게 하자.
+    stPlayer *player = static_cast<stPlayer *>(pPlayer);
     {
-        //해당 SessionID 매칭 데이터가 있다면 말이 안 됨.
-        auto iter = SessionID_hash.find(SessionID);
-        if (iter != SessionID_hash.end())
-            __debugbreak();
+        SessionID_hash.insert({SessionID, player});
 
-        {
-            //해당  Session이 존재하는지 판단.
-            std::shared_lock<SharedMutex> lock(_server->_zoneMutex);
-
-            auto iter = _server->_zoneMap.find((ZoneKeyType)enZoneType::LoginZone);
-            if (iter == _server->_zoneMap.end())
-                __debugbreak();
-            loginZone = dynamic_cast<clsLoginZone *>(iter->second->GetZone());
-        }
-
-        // TODO : 이게 최선인가.
-        {
-            std::shared_lock<SharedMutex> lock(loginZone->_SessionTable_Mutex);
-            auto iter = loginZone->SessionID_hash.find(SessionID);
-            if (iter == loginZone->SessionID_hash.end())
-                __debugbreak();
-            stPlayer *player = iter->second;
-
-            SessionID_hash.insert({SessionID, player});
-
-            msg = (CMessage *)stTlsObjectPool<CMessage>::Alloc();
-            RES_LOGIN(SessionID, msg, 1, player->_AccountNo);
-        }
-
+        msg = (CMessage *)stTlsObjectPool<CMessage>::Alloc();
+        RES_LOGIN(SessionID, msg, 1, player->_AccountNo);
+        
     }
 }
 
@@ -98,39 +75,11 @@ void clsEchoZone::OnDisConnect(ull SessionID)
     auto iter = SessionID_hash.find(SessionID);
     if (iter == SessionID_hash.end())
         __debugbreak();
-    
-    {
-        std::shared_lock<SharedMutex> lock(_server->_zoneMutex);
+    player = iter->second;
 
-        auto iter = _server->_zoneMap.find((ZoneKeyType)enZoneType::LoginZone);
-        if (iter == _server->_zoneMap.end())
-            __debugbreak();
-        loginZone = dynamic_cast<clsLoginZone *>(iter->second->GetZone());
-    }
-
-    // TODO : 이게 최선인가.
-
-    {
-        std::lock_guard<SharedMutex> lock(loginZone->_SessionTable_Mutex);
-        auto iter = loginZone->SessionID_hash.find(SessionID);
-        if (iter == loginZone->SessionID_hash.end())
-            __debugbreak();
-        player = iter->second;
-
-        auto Accountiter = loginZone->Account_hash.find(player->_AccountNo);
-
-        // 중복 로그인이라면 있던 player를 끊음.
-        if (Accountiter != loginZone->Account_hash.end())
-        {
-            loginZone->Account_hash.erase(Accountiter);
-        }
-
-        SessionID_hash.erase(SessionID);
-        loginZone->SessionID_hash.erase(iter);
-    }
-    // Player반환은 여기서.
-    loginZone->player_pool.Release(player);
-
+    SessionID_hash.erase(iter);
+    //LoginServer로 다시 이동시킨 후 삭제 유도.
+    _server->RequeseMoveZone(SessionID, (ZoneKeyType)enZoneType::LoginZone, player);
 }
 
 bool clsEchoZone::PacketProc(ull SessionID, CMessage *msg)

@@ -12,7 +12,7 @@ class clsEchoZone : public IZone
     };
   public:
     // 이 함수를 컨텐츠 개발자가 구현해야함.
-    virtual void OnEnterWorld(ull SessionID, SOCKADDR_IN &addr);
+    virtual void OnEnterWorld(ull SessionID, SOCKADDR_IN &addr, void *pPlayer);
     virtual void OnRecv(ull SessionID, struct CMessage *msg);
     virtual void OnUpdate();
     virtual void OnLeaveWorld(ull SessionID);

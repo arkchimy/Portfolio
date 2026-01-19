@@ -44,7 +44,7 @@ class CZoneServer : public CLanServer
     template <typename T>
     void RegisterZone(const wchar_t *ThreadName, int deltaTime, ZoneKeyType key);
 
-    void RequeseMoveZone(ull SessionID, ZoneKeyType targetZone);
+    void RequeseMoveZone(ull SessionID, ZoneKeyType targetZone,void* pPlayer);
 
     //////////////////////////////////////////
     protected:
