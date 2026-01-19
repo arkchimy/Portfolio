@@ -88,6 +88,37 @@ void CTestServer::MonitorThread()
     PdhAddCounter(hQuery, L"\\Memory\\Pool Nonpaged Bytes", NULL, &Nonpaged_Byte);
 
 
+    // CPU 전체 사용률
+    PDH_HCOUNTER CpuTotal;
+    PdhAddCounter(hQuery,
+                  L"\\Processor(_Total)\\% Processor Time",
+                  0, &CpuTotal);
+
+    // 논페이지 메모리 (Bytes)
+    PDH_HCOUNTER NonPagedBytes;
+    PdhAddCounter(hQuery,
+                  L"\\Memory\\Pool Nonpaged Bytes",
+                  0, &NonPagedBytes);
+
+    // 사용 가능 메모리 (MB)
+    PDH_HCOUNTER AvailableMemoryMB;
+    PdhAddCounter(hQuery,
+                  L"\\Memory\\Available MBytes",
+                  0, &AvailableMemoryMB);
+
+    // 네트워크 수신량 (Bytes/sec)
+    PDH_HCOUNTER NetworkRecv;
+    PdhAddCounter(hQuery,
+                  L"\\Network Interface(*)\\Bytes Received/sec",
+                  0, &NetworkRecv);
+
+    // 네트워크 송신량 (Bytes/sec)
+    PDH_HCOUNTER NetworkSend;
+    PdhAddCounter(hQuery,
+                  L"\\Network Interface(*)\\Bytes Sent/sec",
+                  0, &NetworkSend);
+
+
     PDH_HCOUNTER hTcp4Retrans;
 
     PdhAddCounter(hQuery, L"\\TCPv4\\Segments Retransmitted/sec", 0, &hTcp4Retrans);
@@ -273,12 +304,88 @@ void CTestServer::MonitorThread()
 
                 PdhGetFormattedCounterValue(Nonpaged_Byte, PDH_FMT_LARGE, NULL, &Nonpaged_Byte_ByteVal);
                 wprintf(L"Nonpaged_Byte_ByteVal : %lld Byte\n", Nonpaged_Byte_ByteVal.largeValue);
+
+
+
             }
-
-            currentTime = timeGetTime();
-
+            //   송신 데이터
             time_t currenttt;
             time(&currenttt);
+
+            {
+                // CPU (%)
+                PDH_FMT_COUNTERVALUE cpuVal;
+                PdhGetFormattedCounterValue(
+                    CpuTotal,
+                    PDH_FMT_DOUBLE,
+                    nullptr,
+                    &cpuVal);
+
+                double cpuPercent = cpuVal.doubleValue;
+
+                // 논페이지 메모리 (MB 변환)
+                PDH_FMT_COUNTERVALUE nonpagedVal;
+                PdhGetFormattedCounterValue(
+                    NonPagedBytes,
+                    PDH_FMT_LARGE,
+                    nullptr,
+                    &nonpagedVal);
+
+                double nonpagedMB =
+                    nonpagedVal.largeValue / (1024.0 * 1024.0);
+
+                // 사용 가능 메모리 (이미 MB)
+                PDH_FMT_COUNTERVALUE availMemVal;
+                PdhGetFormattedCounterValue(
+                    AvailableMemoryMB,
+                    PDH_FMT_LARGE,
+                    nullptr,
+                    &availMemVal);
+
+                LONG64 availableMB = availMemVal.largeValue;
+
+                // 네트워크 수신 (KB/sec)
+                PDH_FMT_COUNTERVALUE netRecvVal;
+                PdhGetFormattedCounterValue(
+                    NetworkRecv,
+                    PDH_FMT_LARGE,
+                    nullptr,
+                    &netRecvVal);
+
+                double netRecvKB =
+                    netRecvVal.largeValue / 1024.0;
+
+                // 네트워크 송신 (KB/sec)
+                PDH_FMT_COUNTERVALUE netSendVal;
+                PdhGetFormattedCounterValue(
+                    NetworkSend,
+                    PDH_FMT_LARGE,
+                    nullptr,
+                    &netSendVal);
+
+                double netSendKB =
+                    netSendVal.largeValue / 1024.0;
+
+                g_MonitorTotalData[(BYTE)enMonitorTotal::TimeStamp] = (int)currenttt;
+                    (int)(cpuPercent ); // 소수 제거하고 싶으면
+                g_MonitorTotalData[(BYTE)enMonitorTotal::CPU_TOTAL] =
+                    (int)(cpuPercent ); // 소수 제거하고 싶으면
+
+                g_MonitorTotalData[(BYTE)enMonitorTotal::NONPAGED_MEMORY] =
+                    (int)nonpagedMB;
+
+                g_MonitorTotalData[(BYTE)enMonitorTotal::AVAILABLE_MEMORY] =
+                    (int)availableMB;
+
+                g_MonitorTotalData[(BYTE)enMonitorTotal::NETWORK_RECV] =
+                    (int)netRecvKB;
+
+                g_MonitorTotalData[(BYTE)enMonitorTotal::NETWORK_SEND] =
+                    (int)netSendKB;
+            }
+        
+
+
             // MonitorData
             {
                 // InterlockedExchange((DWORD *)&g_MonitorData[enMonitorType::TimeStamp], currenttt);
@@ -302,6 +409,7 @@ void CTestServer::MonitorThread()
 
                 SetEvent(g_hMonitorEvent);
             }
+            currentTime = timeGetTime();
 
             if (nextTime > currentTime)
                 Sleep(nextTime - currentTime);
