@@ -37,7 +37,18 @@ void CTestClient::TimerThread()
 
             PostReQuest_iocp(SessionID,msg);
         }
+        for (BYTE i = (BYTE)enMonitorTotal::CPU_TOTAL; i < (BYTE)enMonitorTotal::Max; i++)
+        {
+            msg = (CClientMessage *)stTlsObjectPool<CClientMessage>::Alloc();
+            msg->ownerID = SessionID;
 
+            *msg << en_PACKET_SS_MONITOR_DATA_UPDATE;
+            *msg << i;
+            *msg << g_MonitorTotalData[i];
+            *msg << g_MonitorTotalData[0]; // timeStamp
+
+            PostReQuest_iocp(SessionID, msg);
+        }
     }
 }
 

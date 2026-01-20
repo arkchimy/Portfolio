@@ -24,7 +24,20 @@ enum enMonitorType : BYTE
     UpdatePackPool_Cnt,
     Max,
 };
+
+enum class enMonitorTotal : BYTE
+{
+    TimeStamp = 0,
+    CPU_TOTAL = 40,
+    NONPAGED_MEMORY,
+    AVAILABLE_MEMORY,
+    NETWORK_RECV,
+    NETWORK_SEND,
+    Max,
+};
 extern int g_MonitorData[enMonitorType::Max];
+extern int g_MonitorTotalData[(BYTE)enMonitorTotal::Max];
+
 
 extern HANDLE g_hMonitorEvent;
 

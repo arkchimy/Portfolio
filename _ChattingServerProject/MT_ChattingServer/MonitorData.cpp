@@ -2,6 +2,8 @@
 #include "CTestClient.h"
 
 int g_MonitorData[enMonitorType::Max];
+int g_MonitorTotalData[(BYTE)enMonitorTotal::Max];
+
 HANDLE g_hMonitorEvent = CreateEvent(nullptr, 0, false, nullptr);
 
 void ClientFunc()
