@@ -1,5 +1,5 @@
 #include "CTestServer.h"
-#include "../../_3Course/lib/CrushDump_lib/CrushDump_lib/CrushDump_lib.h"
+#include "CrushDump_lib/CrushDump_lib.h"
 
 CDump dump;
 

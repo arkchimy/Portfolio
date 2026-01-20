@@ -270,57 +270,12 @@ void CTestServer::MonitorThread()
             }
             // NetWork
             {
-                PdhGetFormattedCounterValue(hBytesRecv, PDH_FMT_DOUBLE, NULL, &recvVal[0]);
-                PdhGetFormattedCounterValue(hBytesRecv1, PDH_FMT_DOUBLE, NULL, &recvVal[1]);
-                PdhGetFormattedCounterValue(hBytesRecv2, PDH_FMT_DOUBLE, NULL, &recvVal[2]);
-
-                PdhGetFormattedCounterValue(hBytesSent, PDH_FMT_DOUBLE, NULL, &sentVal[0]);
-                PdhGetFormattedCounterValue(hBytesSent1, PDH_FMT_DOUBLE, NULL, &sentVal[1]);
-                PdhGetFormattedCounterValue(hBytesSent2, PDH_FMT_DOUBLE, NULL, &sentVal[2]);
-
-                PdhGetFormattedCounterValue(hBytesTotal, PDH_FMT_DOUBLE, NULL, &totalVal[0]);
-                PdhGetFormattedCounterValue(hBytesTotal1, PDH_FMT_DOUBLE, NULL, &totalVal[1]);
-                PdhGetFormattedCounterValue(hBytesTotal2, PDH_FMT_DOUBLE, NULL, &totalVal[2]);
 
                 PdhGetFormattedCounterValue(hTcp4Retrans, PDH_FMT_DOUBLE, NULL, &vTcp4Retr);
-                PdhGetFormattedCounterValue(hTcp4SegSent, PDH_FMT_DOUBLE, NULL, &vTcp4Sent);
-                PdhGetFormattedCounterValue(hTcp4SegRecv, PDH_FMT_DOUBLE, NULL, &vTcp4Recv);
 
-                double tcp4RetrRatio = 0.0;
-                if (vTcp4Sent.doubleValue > 0.0)
-                    tcp4RetrRatio = (vTcp4Retr.doubleValue / vTcp4Sent.doubleValue) * 100.0;
-
-                wprintf(L"\n ============================================ Network Usage (Bytes/sec) ============================================ \n");
-                wprintf(L"%20s %15s %15s %15s\n",
-                        L"Adapter",
-                        L"Recv(B/s)",
-                        L"Sent(B/s)",
-                        L"Total(B/s)");
-                wprintf(L"--------------------------------------------------------------------------\n");
-
-                wprintf(L"%-40s %15.0f %15.0f %15.0f\n",
-                        L"Realtek PCIe GbE Family Controller",
-                        recvVal[0].doubleValue,
-                        sentVal[0].doubleValue,
-                        totalVal[0].doubleValue);
-
-                wprintf(L"%-40s %15.0f %15.0f %15.0f\n",
-                        L"Intel[R] I210 Gigabit Network Connection",
-                        recvVal[1].doubleValue,
-                        sentVal[1].doubleValue,
-                        totalVal[1].doubleValue);
-
-                wprintf(L"%-40s %15.0f %15.0f %15.0f\n",
-                        L"Intel[R] I210 Gigabit Network Connection _2",
-                        recvVal[2].doubleValue,
-                        sentVal[2].doubleValue,
-                        totalVal[2].doubleValue);
 
                 wprintf(L"\n ============================================ TCP Retransmission ============================================ \n");
-                wprintf(L"TCPv4 Segments Sent/sec          : %.2f\n", vTcp4Sent.doubleValue);
                 wprintf(L"TCPv4 Segments Retransmitted/sec : %.2f\n", vTcp4Retr.doubleValue);
-                wprintf(L"TCPv4 Retrans Ratio              : %.2f %%\n", tcp4RetrRatio);
-
                 wprintf(L" ============================================================================================================== \n");
             }
             currentTime = timeGetTime();
@@ -416,7 +371,7 @@ void CTestServer::MonitorThread()
                 g_MonitorData[enMonitorType::Memory] = (int)(Process_PrivateByteVal.largeValue / 1024 / 1024);
                 g_MonitorData[enMonitorType::SessionCnt] = (int)GetSessionCount();
                 g_MonitorData[enMonitorType::UserCnt] = (int)GetAccountNo_hash();
-                g_MonitorData[enMonitorType::TotalSendTps] = (int)TotalTPS;
+                g_MonitorData[enMonitorType::TotalRecvTps] = (int)UpdateTPS;
                 g_MonitorData[enMonitorType::TotalPackPool_Cnt] = (int)stTlsObjectPool<CMessage>::instance.m_TotalCount;
                 g_MonitorData[enMonitorType::UpdatePackPool_Cnt] = totalCountentSize;
 
@@ -427,74 +382,7 @@ void CTestServer::MonitorThread()
                 Sleep(nextTime - currentTime);
         }
     }
-    // 종료 절차.
 
-    // DWORD waitThread_Retval;
-    // std::wstring Accept_str(L"AcceptThread Shutdown in progress");
-    // std::wstring Worker_str(L"WorkerThread Shutdown in progress");
-    // std::wstring Contents_str(L"ContentsThread Shutdown in progress");
-
-    // std::wstring Accept_str2(L"AcceptThread Shutdown complete.");
-    // std::wstring Worker_str2(L"WorkerThread");
-    // std::wstring Contents_str2(L"ContentsThread");
-
-    // wchar_t dot_str[][11] = {
-    //     L".",
-    //     L"..",
-    //     L"...",
-    //     L"....",
-    //     L".....",
-    //     L"......",
-    //     L".......",
-    //     L"........",
-    //     L".........",
-    //     L"..........",
-    // };
-    // bool bOn = true;
-    // while (bOn)
-    //{
-    //     static DWORD Chance = 0;
-    //     if (Chance % 10000 == 0)
-    //         bOn = false;
-
-    //    Chance++;
-
-    //    nextTime += 1000;
-    //    printf(" =========================Waiting for Threads to terminate...=========================\n");
-    //    // AcceptThread 종료
-    //    {
-
-    //        waitThread_Retval = WaitForSingleObject(m_hAccept.native_handle(), 0);
-    //        if (waitThread_Retval == WAIT_TIMEOUT)
-    //        {
-    //            wprintf(L"\t%30s\n", (Accept_str + dot_str[Chance % 10]).c_str());
-    //            bOn = true;
-    //        }
-    //        else
-    //        {
-    //            wprintf(L"\t%30s\n", (Accept_str2).c_str());
-    //        }
-    //    }
-    //
-    //    printf(" =========================  Wait for Job Process terminate  =========================\n");
-
-    //    LONG64 sum = 0;
-    //    for (int idx = 0; idx < balanceVec.size(); idx++)
-    //    {
-    //        sum += balanceVec[idx].second;
-    //        printf("%15s %10s %05d  %10s %05lld\n",
-    //               "Contetent",
-    //               "Session :", balanceVec[idx].second,
-    //               "UpdateMessage_Queue", m_CotentsQ_vec[idx].m_size);
-    //    }
-    //    if (sum != 0)
-    //        bOn = true;
-
-    //    currentTime = timeGetTime();
-    //    if (nextTime > currentTime)
-    //        Sleep(nextTime - currentTime);
-    //    printf(" ===================================================================================\n");
-    //}
     CSystemLog::GetInstance()->Log(L"SystemLog.txt", en_LOG_LEVEL::SYSTEM_Mode, L"MonitorThread Terminated %d", 0);
 }
 

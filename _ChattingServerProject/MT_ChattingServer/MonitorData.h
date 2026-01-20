@@ -19,7 +19,7 @@ enum enMonitorType : BYTE
 	Memory,
     SessionCnt,
     UserCnt,
-    TotalSendTps,
+    TotalRecvTps,
     TotalPackPool_Cnt,
     UpdatePackPool_Cnt,
     Max,

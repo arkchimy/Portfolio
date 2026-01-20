@@ -66,6 +66,8 @@ class CTestServer : public CLanServer
 
     virtual BOOL Start(const wchar_t *bindAddress, short port, int ZeroCopy, int WorkerCreateCnt, int maxConcurrency, int useNagle, int maxSessions);
     virtual void OnRecv(ull SessionID, CMessage *msg) override;
+    virtual void OnSend(ull SessionID) override;
+
 
     virtual bool OnAccept(ull SessionID, SOCKADDR_IN &addr) override;
     virtual void OnRelease(ull SessionID) override;

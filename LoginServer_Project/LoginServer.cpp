@@ -51,7 +51,7 @@ BYTE CTestServer::WaitDB(INT64 AccountNo, const WCHAR *const SessionKey, WCHAR *
     if (result.Sucess() == false)
     {
         printf("\tQuery Error %s \n", result.Error().c_str());
-        __debugbreak();
+        return dfLOGIN_STATUS_SESSION_MISS;
     }
     // select의 경우
     for (const auto &row : result)
@@ -68,7 +68,7 @@ BYTE CTestServer::WaitDB(INT64 AccountNo, const WCHAR *const SessionKey, WCHAR *
             size_t i;
   
             value = SessionKeyA;
-            int ttl_ms = 50000;
+            int ttl_ms = 90000;
             InterlockedIncrement(&cnt);
             client->psetex(key, ttl_ms, value);
             client->sync_commit();
@@ -205,61 +205,7 @@ void CTestServer::MonitorThread()
                     PdhGetFormattedCounterValue(Nonpaged_Byte, PDH_FMT_LARGE, NULL, &Nonpaged_Byte_ByteVal);
                     wprintf(L"Nonpaged_Byte_ByteVal : %lld Byte\n", Nonpaged_Byte_ByteVal.largeValue);
                 }
-                // NetWork
-                {
-                    PdhGetFormattedCounterValue(hBytesRecv, PDH_FMT_DOUBLE, NULL, &recvVal[0]);
-                    PdhGetFormattedCounterValue(hBytesRecv1, PDH_FMT_DOUBLE, NULL, &recvVal[1]);
-                    PdhGetFormattedCounterValue(hBytesRecv2, PDH_FMT_DOUBLE, NULL, &recvVal[2]);
 
-                    PdhGetFormattedCounterValue(hBytesSent, PDH_FMT_DOUBLE, NULL, &sentVal[0]);
-                    PdhGetFormattedCounterValue(hBytesSent1, PDH_FMT_DOUBLE, NULL, &sentVal[1]);
-                    PdhGetFormattedCounterValue(hBytesSent2, PDH_FMT_DOUBLE, NULL, &sentVal[2]);
-
-                    PdhGetFormattedCounterValue(hBytesTotal, PDH_FMT_DOUBLE, NULL, &totalVal[0]);
-                    PdhGetFormattedCounterValue(hBytesTotal1, PDH_FMT_DOUBLE, NULL, &totalVal[1]);
-                    PdhGetFormattedCounterValue(hBytesTotal2, PDH_FMT_DOUBLE, NULL, &totalVal[2]);
-
-                    PdhGetFormattedCounterValue(hTcp4Retrans, PDH_FMT_DOUBLE, NULL, &vTcp4Retr);
-                    PdhGetFormattedCounterValue(hTcp4SegSent, PDH_FMT_DOUBLE, NULL, &vTcp4Sent);
-                    PdhGetFormattedCounterValue(hTcp4SegRecv, PDH_FMT_DOUBLE, NULL, &vTcp4Recv);
-
-                    double tcp4RetrRatio = 0.0;
-                    if (vTcp4Sent.doubleValue > 0.0)
-                        tcp4RetrRatio = (vTcp4Retr.doubleValue / vTcp4Sent.doubleValue) * 100.0;
-
-                    wprintf(L"\n ============================================ Network Usage (Bytes/sec) ============================================ \n");
-                    wprintf(L"%20s %15s %15s %15s\n",
-                            L"Adapter",
-                            L"Recv(B/s)",
-                            L"Sent(B/s)",
-                            L"Total(B/s)");
-                    wprintf(L"--------------------------------------------------------------------------\n");
-
-                    wprintf(L"%-40s %15.0f %15.0f %15.0f\n",
-                            L"Realtek PCIe GbE Family Controller",
-                            recvVal[0].doubleValue,
-                            sentVal[0].doubleValue,
-                            totalVal[0].doubleValue);
-
-                    wprintf(L"%-40s %15.0f %15.0f %15.0f\n",
-                            L"Intel[R] I210 Gigabit Network Connection",
-                            recvVal[1].doubleValue,
-                            sentVal[1].doubleValue,
-                            totalVal[1].doubleValue);
-
-                    wprintf(L"%-40s %15.0f %15.0f %15.0f\n",
-                            L"Intel[R] I210 Gigabit Network Connection _2",
-                            recvVal[2].doubleValue,
-                            sentVal[2].doubleValue,
-                            totalVal[2].doubleValue);
-
-                    wprintf(L"\n ============================================ TCP Retransmission ============================================ \n");
-                    wprintf(L"TCPv4 Segments Sent/sec          : %.2f\n", vTcp4Sent.doubleValue);
-                    wprintf(L"TCPv4 Segments Retransmitted/sec : %.2f\n", vTcp4Retr.doubleValue);
-                    wprintf(L"TCPv4 Retrans Ratio              : %.2f %%\n", tcp4RetrRatio);
-
-                    wprintf(L" ============================================================================================================== \n");
-                }
                 currentTime = timeGetTime();
 
                 time_t currenttt;
@@ -307,7 +253,7 @@ void CTestServer::HeartBeatThread()
         retval = WaitForSingleObject(m_ServerOffEvent, 20);
         if (retval != WAIT_TIMEOUT)
             return;
-        // server->Update();
+        Update();
     }
 }
 
@@ -421,11 +367,7 @@ void CTestServer::REQ_LOGIN(ull SessionID, CMessage *msg, INT64 AccountNo, WCHAR
                                            L"REQ_LOGIN", L"AccountNo Already exists ",
                                            SessionID);
             Disconnect(iter->second->m_sessionID);
-
-        
-            /*  
-            Disconnect(SessionID);
-            return;*/
+            Account_hash.erase(iter);
         }
         player = SessionID_hash[SessionID];
         //Account_Hash 추가
@@ -569,6 +511,11 @@ void CTestServer::OnRecv(ull SessionID, CMessage *msg)
     PacketProc(SessionID,msg,type);
 }
 
+void CTestServer::OnSend(ull SessionID)
+{
+    //Disconnect(SessionID);
+}
+
 bool CTestServer::OnAccept(ull SessionID, SOCKADDR_IN &addr)
 {
     std::lock_guard<SharedMutex> sessionHashLock(SessionID_hash_Lock);
@@ -650,9 +597,13 @@ void CTestServer::Update()
             continue;
         }
         distance = currentTime - targetTime;
-        if (distance > 10000)
+        if (distance > 15000)
         {
             Disconnect(element.first);
+            CSystemLog::GetInstance()->Log(L"Contents_DisConnect", en_LOG_LEVEL::ERROR_Mode,
+                                           L"%-10s %10s %05lld ",
+                                           L" HeartBeat ", L" SessionID  ",
+                                           element.first );
         }
     }
 

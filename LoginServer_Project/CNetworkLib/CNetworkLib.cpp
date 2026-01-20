@@ -593,7 +593,7 @@ void CLanServer::SendComplete(clsSession &session, DWORD transferred)
                 }
             }
         }
-
+        OnSend(session.m_SeqID);
         return;
     }
 
@@ -643,6 +643,7 @@ void CLanServer::SendComplete(clsSession &session, DWORD transferred)
         if (send_retval < 0)
             WSASendError(LastError, session.m_SeqID);
     }
+
 }
 void CLanServer::ReleaseComplete(clsSession& session)
 {

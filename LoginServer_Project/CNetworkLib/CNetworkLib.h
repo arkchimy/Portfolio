@@ -90,6 +90,7 @@ class CLanServer : public Stub, public Proxy
 
     virtual bool OnAccept(ull SessionID , SOCKADDR_IN& addr) = 0;
     virtual void OnRecv(ull SessionID, struct CMessage *msg) = 0;
+    virtual void OnSend(ull SessionID) = 0;
     virtual void OnRelease(ull SessionID) = 0;
 
     LONG64 GetSessionCount() const ; 
