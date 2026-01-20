@@ -36,9 +36,9 @@ enum class enMonitorTotal : BYTE
     TimeStamp = 0,
     CPU_TOTAL = 40,
     NONPAGED_MEMORY,
-    AVAILABLE_MEMORY,
     NETWORK_RECV,
     NETWORK_SEND,
+    AVAILABLE_MEMORY,
     Max,
 };
 extern int g_MonitorData[enMonitorType::Max];

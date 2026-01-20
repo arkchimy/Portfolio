@@ -513,7 +513,8 @@ void CTestServer::REQ_LOGIN(ull SessionID, CMessage *msg, INT64 AccountNo, WCHAR
         if (reply.is_null())
         {
             printf("AccountNo %lld not found in redis\n", AccountNo);
-            __debugbreak();
+            stTlsObjectPool<CMessage>::Release(msg);
+            Disconnect(SessionID);
             return;
         }
         std::string sessionKey = reply.as_string();
