@@ -372,7 +372,7 @@ void CTestServer::MonitorThread()
                 g_MonitorData[enMonitorType::SessionCnt] = (int)GetSessionCount();
                 g_MonitorData[enMonitorType::UserCnt] = (int)GetAccountNo_hash();
                 g_MonitorData[enMonitorType::TotalRecvTps] = (int)UpdateTPS;
-                g_MonitorData[enMonitorType::TotalPackPool_Cnt] = (int)stTlsObjectPool<CMessage>::instance.m_TotalCount;
+                g_MonitorData[enMonitorType::TotalPackPool_Cnt] = (int)stTlsObjectPool<CMessage>::s_ActiveNode;
                 g_MonitorData[enMonitorType::UpdatePackPool_Cnt] = totalCountentSize;
 
                 SetEvent(g_hMonitorEvent);

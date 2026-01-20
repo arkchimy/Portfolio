@@ -255,6 +255,7 @@ struct stTlsObjectPool
 
     inline static stTlsObjectPoolManager<T> instance;
     inline static DWORD s_tlsIdx = TlsAlloc();
+    inline static ull s_ActiveNode = 0;
 
     ObjectPoolType<T> *allocPool = nullptr;
     ObjectPoolType<T> *releasePool = nullptr;
