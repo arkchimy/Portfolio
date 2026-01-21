@@ -199,10 +199,6 @@ BOOL CClientMessage::ReSize()
 
     _size = en_BufferSize::MaxSize;
 
-    // TODO : 복사 범위 생각해보기.
-    //    f     =>    r 인 경우
-    // case : _frontPtr < _rearPtr  옮길 데이터가 없는 상황.
-    //    r       f   인 경우 데이터를 옮겨야 함.
     if (_frontPtr > _rearPtr)
     {
         UseSize = SerializeBufferSize(_rearPtr - _frontPtr);

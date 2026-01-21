@@ -55,7 +55,7 @@ void CTestServer::MonitorThread()
     DWORD currentTime;
     DWORD nextTime; // 내가 목표로하는 이상적인 시간.
 
-    size_t MaxSessions = sessions_vec.size();
+    size_t MaxSessions = getMaxSessionCnt();
 
     char ProfilerFormat[2][30] = {
         "Profiler_Mode : Off\n",
@@ -173,7 +173,9 @@ void CTestServer::MonitorThread()
                    "Player Count", GetPlayerCount());
 
             printf(" %-25s : %10lld\n", "PacketPool", stTlsObjectPool<CMessage>::instance.m_TotalCount);
-            printf(" %-25s : %10lld\n", "Total iDisconnectCount", iDisCounnectCount);
+            printf(" %-25s : %10lld\n", "s_ActiveNode", stTlsObjectPool<CMessage>::s_ActiveNode);
+
+            printf(" %-25s : %10d\n", "Total iDisconnectCount", getDisConnectCnt());
             printf(" %100s \n", ProfilerFormat[Profiler::bOn]);
 
             printf(" ============================================ Thread TPS ========================================== \n");
@@ -248,7 +250,7 @@ void CTestServer::MonitorThread()
                 wprintf(L"TCPv4 Segments Retransmitted/sec : %.2f\n", vTcp4Retr.doubleValue);
                 wprintf(L" ============================================================================================================== \n");
             }
-            currentTime = timeGetTime();
+     
 
             time_t currenttt;
             time(&currenttt);
@@ -329,25 +331,25 @@ void CTestServer::MonitorThread()
             // MonitorData
             {
                 //InterlockedExchange((DWORD *)&g_MonitorData[enMonitorType::TimeStamp], currenttt);
-                int totalCountentSize = 0;
+                LONG64 totalCountentSize = 0;
 
                 for (auto& contentQ : m_CotentsQ_vec)
                 {
                     totalCountentSize += contentQ.m_size;
                 }
                 g_MonitorData[enMonitorType::TimeStamp] = (int)currenttt;
-                g_MonitorData[enMonitorType::On] = bOn;
+                g_MonitorData[enMonitorType::On] = getServerisOn();
                 g_MonitorData[enMonitorType::Cpu] = (int)CPUTime.ProcessTotal();
                 g_MonitorData[enMonitorType::Memory] = (int)(Process_PrivateByteVal.largeValue / 1024 / 1024);
                 g_MonitorData[enMonitorType::SessionCnt] = (int)GetSessionCount();
                 g_MonitorData[enMonitorType::UserCnt] = (int)GetAccountNo_hash();
                 g_MonitorData[enMonitorType::TotalRecvTps] = (int)UpdateTPS;
                 g_MonitorData[enMonitorType::TotalPackPool_Cnt] = (int)stTlsObjectPool<CMessage>::s_ActiveNode;
-                g_MonitorData[enMonitorType::UpdatePackPool_Cnt] = totalCountentSize;
+                g_MonitorData[enMonitorType::UpdatePackPool_Cnt] = (int)totalCountentSize;
 
                 SetEvent(g_hMonitorEvent);
             }
-
+            currentTime = timeGetTime();
             if (nextTime > currentTime)
                 Sleep(nextTime - currentTime);
         }
@@ -451,7 +453,7 @@ void CTestServer::REQ_LOGIN(ull SessionID, CMessage *msg, INT64 AccountNo, WCHAR
         Disconnect(AccountNo_hash[AccountNo]->m_sessionID);
         // return;
     }
-    DWORD idx = 1;
+    size_t idx = 1;
     DWORD _min = INT_MAX;
 
     balanceVec[0]--;
@@ -484,33 +486,10 @@ void CTestServer::REQ_LOGIN(ull SessionID, CMessage *msg, INT64 AccountNo, WCHAR
     m_TotalPlayers++; // Player 카운트
     m_prePlayerCount--;
 
-    _InterlockedExchange(&player->m_ContentsQIdx, idx);
+    _InterlockedExchange(&player->m_ContentsQIdx, (unsigned int)idx);
 
     {
-        //// Login응답.
-        //// redis에서 읽기, 가져오고 token을 비교 같다면
-        //std::string key = std::to_string(AccountNo);
-        //auto future = client->get(key.c_str());
-        //client->sync_commit();
-        //cpp_redis::reply reply = future.get();
-
-        //if (reply.is_null())
-        //{
-        //    printf("AccountNo %lld not found in redis\n", AccountNo);
-        //    __debugbreak();
-        //    return;
-        //}
-        //std::string sessionKey = reply.as_string();
-
-        //char SessionKeyA[66];
-        //memcpy(SessionKeyA, SessionKey, 64);
-        //SessionKeyA[64] = '\0';
-        //SessionKeyA[65] = '\0';
-
-        //key = std::to_string(AccountNo);
-
-        //if (sessionKey.compare(SessionKeyA) != 0)
-        //    __debugbreak();
+ 
         Proxy::RES_LOGIN(SessionID, msg, true, AccountNo);
 
         InterlockedIncrement64(&m_RecvMsgArr[en_PACKET_CS_CHAT_RES_LOGIN]);
@@ -676,7 +655,7 @@ void CTestServer::REQ_MESSAGE(ull SessionID, CMessage *msg, INT64 AccountNo, WOR
             stTlsObjectPool<CMessage>::Release(msg);
             return;
         }
-        // TODO : Broad Cast  방식 수정하기.
+
         std::vector<ull> sendID;
 
         st_Sector_Around AroundSectors;
@@ -782,8 +761,6 @@ void CTestServer::AllocPlayer(CMessage *msg)
     if (player == nullptr)
     {
         // Player가 가득 참.
-        // TODO : 이 경우에는 끊기보다는 유예를 둬야하나?
-
         stTlsObjectPool<CMessage>::Release(msg);
 
         CSystemLog::GetInstance()->Log(L"ContentsLog", en_LOG_LEVEL::ERROR_Mode,
@@ -819,7 +796,7 @@ void CTestServer::AllocPlayer(CMessage *msg)
 
 void CTestServer::DeletePlayer(CMessage *msg)
 {
-    // TODO : 이 구현이 TestServer에 있는게 맞는가?
+
     // Player를 다루는 모든 자료구조에서 해당 Player를 제거.
 
     ull SessionID;
@@ -1052,31 +1029,37 @@ void CTestServer::Update()
             continue;
         }
 
-        { //  Client Message
+        //  Client Message
+        {
+
+            std::shared_lock<SharedMutex> SessionID_HashLock(srw_SessionID_Hash);
+
+            if (SessionID_hash.find(l_sessionID) != SessionID_hash.end())
             {
-
-                std::shared_lock<SharedMutex> SessionID_HashLock(srw_SessionID_Hash);
-
-                if (SessionID_hash.find(l_sessionID) != SessionID_hash.end())
-                    player = SessionID_hash[l_sessionID];
-                else
-                {
-                    stTlsObjectPool<CMessage>::Release(msg);
-                    continue;
-                }
+                player = SessionID_hash[l_sessionID];
+                InterlockedExchange(&player->m_Timer, timeGetTime());
             }
-            InterlockedExchange(&player->m_Timer, timeGetTime());
+            else
             {
-                Profiler profiler(L"PacketProc");
-                if (PacketProc(l_sessionID, msg, wType) == false)
-                {
-                    stTlsObjectPool<CMessage>::Release(msg);
-                    Disconnect(l_sessionID);
-                }
-                else
-                    InterlockedIncrement64(&m_RecvMsgArr[wType]);
+                stTlsObjectPool<CMessage>::Release(msg);
+                continue;
             }
         }
+            
+        {
+            Profiler profiler(L"PacketProc");
+            if (PacketProc(l_sessionID, msg, wType) == false)
+            {
+                stTlsObjectPool<CMessage>::Release(msg);
+                Disconnect(l_sessionID);
+            }
+            else
+            {
+                InterlockedIncrement64(&m_RecvMsgArr[wType]);
+                    
+            }
+        }
+        
 
         InterlockedIncrement64(&m_UpdateTPS);
     }
@@ -1290,7 +1273,7 @@ void CTestServer::BalanceUpdate()
 
     {
         Profiler profile(L"HeartBeat");
-        // HeartBeat();
+        HeartBeat();
     }
 }
 
@@ -1313,7 +1296,7 @@ void CTestServer::HeartBeat()
             playerTime = player->m_Timer;
 
             msgInterval = currentTime - playerTime;
-            if (msgInterval >= 6000 && playerTime < currentTime)
+            if (msgInterval >= 15000 && playerTime < currentTime)
             {
                 CSystemLog::GetInstance()->Log(L"ContentsLog", en_LOG_LEVEL::ERROR_Mode,
                                                L"%-20s %05lld %12s %05llu",
@@ -1329,6 +1312,7 @@ void CTestServer::HeartBeat()
         stPlayer *player;
 
         // AccountNo_hash 는 LoginPacket을 받아서 승격된 Player
+        std::shared_lock<SharedMutex> lock(srw_SessionID_Hash);
         for (auto &element : AccountNo_hash)
         {
             player = element.second;
@@ -1336,7 +1320,7 @@ void CTestServer::HeartBeat()
             playerTime = player->m_Timer;
             msgInterval = currentTime - playerTime;
 
-            if (msgInterval >= 40000 && playerTime < currentTime)
+            if (msgInterval >= 30000 && playerTime < currentTime)
             {
                 CSystemLog::GetInstance()->Log(L"ContentsLog", en_LOG_LEVEL::ERROR_Mode,
                                                L"%-20s %05lld %12s %05llu",
@@ -1408,7 +1392,7 @@ bool CTestServer::OnAccept(ull SessionID, SOCKADDR_IN &addr)
     // Accept의 요청이 밀리고 있다고한다면, 그 이후에 Accept로 들어오는 Session을 끊겠다.
     // m_AllocMsgCount 처리량을 보여주는 변수.
     LONG64 localAllocCnt;
-    clsSession &session = sessions_vec[SessionID >> 47];
+    clsSession &session = GetSession(SessionID);
 
     localAllocCnt = _InterlockedIncrement64(&m_AllocMsgCount); // Alloc Message가 너무 쏟아진다면 인큐를 안함.
     if (localAllocCnt > m_AllocLimitCnt)

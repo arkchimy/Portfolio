@@ -285,7 +285,7 @@ BOOL CLanServer::Start(const wchar_t *bindAddress, short port, int ZeroCopy, int
     HRESULT hr;
     SOCKADDR_IN serverAddr;
 
-
+    _MaxSessions = MaxSessions;
     sessions_vec.resize(MaxSessions);
 
     for (ull idx = 0; idx < MaxSessions; idx++)
@@ -760,7 +760,7 @@ void CLanServer::Unicast(ull SessionID, CMessage *msg, LONG64 Account)
         }
 
     }
-
+    
     // PQCS를 시도.
     if (InterlockedCompareExchange(&session.m_flag, 1, 0) == 0)
     {
@@ -770,7 +770,8 @@ void CLanServer::Unicast(ull SessionID, CMessage *msg, LONG64 Account)
 
         PostQueuedCompletionStatus(m_hIOCP, 0, (ULONG_PTR)&session, &session.m_sendOverlapped);
     }
-
+    if(session.m_sendBuffer.m_size == SendBufferLimit)
+        Disconnect(SessionID);
     SessionUnLock(SessionID);
 }
 void CLanServer::BroadCast(ull SessionID, CMessage *msg, std::vector<ull> *pIDVector, size_t wVecLen)
@@ -803,7 +804,9 @@ void CLanServer::BroadCast(ull SessionID, CMessage *msg, std::vector<ull> *pIDVe
 
             PostQueuedCompletionStatus(m_hIOCP, 0, (ULONG_PTR)&session, &session.m_sendOverlapped);
         }
-        
+        if (session.m_sendBuffer.m_size == SendBufferLimit)
+            Disconnect(SessionID);
+
         SessionUnLock(currentSessionID);
     }
 
@@ -913,7 +916,7 @@ void CLanServer::WSASendError(const DWORD LastError, const ull SessionID)
 {
     clsSession &session = sessions_vec[SessionID >> 47];
     ull local_IoCount;
-    // TODO : JumpTable이 만들어지는가?
+
     switch (LastError)
     {
     case WSA_IO_PENDING:
@@ -952,7 +955,7 @@ void CLanServer::WSARecvError(const DWORD LastError, const ull SessionID)
     clsSession &session = sessions_vec[SessionID >> 47];
     ull local_IoCount;
 
-    // TODO : JumpTable이 만들어지는가?
+
     switch (LastError)
     {
     case WSA_IO_PENDING:

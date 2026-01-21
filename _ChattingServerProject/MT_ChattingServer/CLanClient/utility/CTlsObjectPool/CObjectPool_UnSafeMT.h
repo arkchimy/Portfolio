@@ -110,7 +110,7 @@ class CObjectPool_UnSafeMT
     }
     void Release(PVOID newNode)
     {
-        // TODO : Push го╠Б
+    
         stNode *oldTop;
 
 

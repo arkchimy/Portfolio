@@ -95,6 +95,7 @@ PVOID stTlsObjectPool<CMessage>::Alloc()
     ull localAllocCnt;
 
     localAllocCnt = InterlockedIncrement(&AllocCnt);
+ 
     CSystemLog::GetInstance()->Log(L"CMessage", en_LOG_LEVEL::DEBUG_Mode, L"%15s %08llu ",
                                    L"CMessage Alloc : ", localAllocCnt);
     stTlsObjectPool *pool = nullptr;
@@ -162,6 +163,7 @@ void stTlsObjectPool<CMessage>::Release(PVOID node)
     if (iUseCnt != 0)
         return;
     localReleaseCnt = InterlockedIncrement64(&ReleaseCnt);
+    
     InterlockedDecrement(&s_ActiveNode);
     CSystemLog::GetInstance()->Log(L"CMessage", en_LOG_LEVEL::DEBUG_Mode, L"%15s %08llu ",
                                    L"CMessage Release : ", localReleaseCnt);

@@ -1,6 +1,6 @@
 ﻿#include "CLanClient.h"
 
-// TODO: 라이브러리 함수의 예제입니다.
+
 void fnCLanClient()
 {
 }
@@ -80,7 +80,7 @@ void CLanClient::WorkerThread()
             continue;
         }
         session = reinterpret_cast<clsClientSession *>(key);
-        // TODO : JumpTable 생성 되는 지?
+    
         switch (reinterpret_cast<stClientOverlapped *>(overlapped)->_mode)
         {
         case Job_Type::Recv:
@@ -275,7 +275,6 @@ void CLanClient::Disconnect(ull SessionID)
 
 CClientMessage *CLanClient::CreateMessage(clsClientSession &session, stHeader &header) const
 {
-    // TODO : Header를 읽고, 생성하고
 
     CClientMessage *msg;
     ringBufferSize deQsize;
@@ -660,7 +659,7 @@ void CLanClient::SessionUnLock(ull SessionID)
 void CLanClient::WSASendError(const DWORD LastError)
 {
     ull local_IoCount;
-    // TODO : JumpTable이 만들어지는가?
+
     switch (LastError)
     {
     case WSA_IO_PENDING:
@@ -695,7 +694,6 @@ void CLanClient::WSARecvError(const DWORD LastError)
 {
     ull local_IoCount;
 
-    // TODO : JumpTable이 만들어지는가?
     switch (LastError)
     {
     case WSA_IO_PENDING:

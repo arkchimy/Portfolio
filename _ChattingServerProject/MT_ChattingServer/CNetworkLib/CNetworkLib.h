@@ -68,19 +68,39 @@ class CLanServer : public Stub, public Proxy
     // Player가 0으로 떨어졌을때 반드시 호출 해줘야 함.
     virtual void SignalOnForStop();
 
+    bool Disconnect(const ull SessionID);
+    void SendPacket(ull SessionID, struct CMessage *msg, BYTE SendType,
+                    std::vector<ull> *pIDVector = nullptr, size_t wVecLen = 0);
+
+    clsSession& GetSession(ull SessionID) 
+    {
+        if (int(SessionID >> 47) > (_MaxSessions - 1))
+        {
+            //sessionID의 오염.  메모리 오염된 경우 임.
+            __debugbreak();
+        }
+        return sessions_vec[SessionID >> 47];
+    }
+
     // 호출자가 1초마다 호출을 책임져야함.
     int getAcceptTPS();
     // 호출자가 1초마다 호출을 책임져야함.
     int getRecvMessageTPS();
     // 호출자가 1초마다 호출을 책임져야함.
     int getSendMessageTPS();
+    int getMaxSessionCnt() { return _MaxSessions; }
+    
+    LONG64 GetSessionCount() const;
+    virtual LONG64 GetPlayerCount() { return 0; } // Contents에서 구현하기.
+    LONG64 Get_IdxStack() const;
 
-    bool Disconnect(const ull SessionID);
+    ull getTotalAccept() const { return m_TotalAccept; }
+    ull getNetworkMsgCount() const { return m_NetworkMsgCount; }
+    bool getServerisOn() { return bOn; }
+    bool getDisConnectCnt() { return iDisCounnectCount; }
+  private:
 
-  public:
-
-    void CancelIO_Routine(const ull SessionID); // Session에 대한 안정성은  외부에서 보장해주세요.
-
+    void CancelIO_Routine(const ull SessionID); 
     void DecrementIoCountAndMaybeDeleteSession(clsSession &session);
     CMessage *CreateMessage(class clsSession &session, struct stHeader &header) const ;
 
@@ -92,49 +112,44 @@ class CLanServer : public Stub, public Proxy
     bool SessionLock(ull SessionID);   // 내부에서 IO를 증가시켜 안전을 보장함.
     void SessionUnLock(ull SessionID); // 반환형 쓸때가 없음.
 
-    void SendPacket(ull SessionID, struct CMessage *msg, BYTE SendType,
-                    std::vector<ull> *pIDVector = nullptr, size_t wVecLen = 0);
     void Unicast(ull SessionID, CMessage *msg, LONG64 Account = 0);
     void BroadCast(ull SessionID, CMessage *msg, std::vector<ull> *pIDVector, size_t wVecLen);
 
     void RecvPacket(class clsSession &session);
 
-    virtual bool OnAccept(ull SessionID , SOCKADDR_IN& addr) = 0;
-    virtual void OnRecv(ull SessionID, struct CMessage *msg) = 0;
-    virtual void OnRelease(ull SessionID) = 0;
-
-    LONG64 GetSessionCount() const ; 
-    virtual LONG64 GetPlayerCount() { return 0; } // Contents에서 구현하기.
-    LONG64 Get_IdxStack() const ;
-
-    ull getTotalAccept() const { return m_TotalAccept; }
-    ull getNetworkMsgCount() const { return m_NetworkMsgCount; }
 
     void WSASendError(const DWORD LastError, const ull SessionID);
     void WSARecvError(const DWORD LastError, const ull SessionID);
+
     // 실제로 Release를 하는 Overalpped을 PQCS하는 함수.
     void ReleaseSession(ull SessionID);
 
-  protected:
-    // SignalOnForStop에서 사용할 이벤트객체
-    HANDLE hReadyForStopEvent = INVALID_HANDLE_VALUE; 
+    private:
+    virtual bool OnAccept(ull SessionID, SOCKADDR_IN &addr) = 0;
+    virtual void OnRecv(ull SessionID, struct CMessage *msg) = 0;
+    virtual void OnRelease(ull SessionID) = 0;
 
+  private:
     std::vector<clsSession> sessions_vec;
+    int _MaxSessions  = 0 ;
+
+    // SignalOnForStop에서 사용할 이벤트객체
+    HANDLE hReadyForStopEvent = INVALID_HANDLE_VALUE;
+
     SOCKET m_listen_sock = INVALID_SOCKET;
     HANDLE m_hIOCP = INVALID_HANDLE_VALUE;
 
     std::vector<WinThread> m_hWorkerThread;
+
     WinThread m_hAccept;
 
-    bool bZeroCopy = false;
     bool bOn = false;
-
-    int bNoDelay = false;
-
     LONG64 m_SessionCount = 0;
     ull iDisCounnectCount = 0;
 
-
+  protected:
+    bool bZeroCopy = false;
+    int bNoDelay = false;
 
     CLockFreeStack<ull> m_SessionIdxStack; // 반환된 Idx를 Stack형식으로
     int m_WorkThreadCnt = 0;               // MonitorThread에서 WorkerThread의 갯수를 알기위한 변수.
@@ -142,7 +157,6 @@ class CLanServer : public Stub, public Proxy
     std::vector<LONG64> arrTPS;
     LONG64 m_RecvTPS = 0;
     ull m_TotalAccept = 0;
-
 
     LONG64 m_AllocMsgCount = 0;
     LONG64 m_NetworkMsgCount = 0;

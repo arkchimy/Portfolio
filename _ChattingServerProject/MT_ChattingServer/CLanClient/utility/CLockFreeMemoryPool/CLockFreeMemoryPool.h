@@ -152,7 +152,7 @@ class CObjectPool
     }
     void Release(void *newNode)
     {
-        // TODO : Push 하기
+     
         stNode<T> *oldTop;
         stNode<T> *newTop = (stNode<T>*)newNode;
 
@@ -166,11 +166,7 @@ class CObjectPool
         {
             oldSeqAddr = *_top;
             oldTop = reinterpret_cast<stNode<T> *>(oldSeqAddr.addr);
-            // TODO : 여기서 oldTop == newTop 인경우가 발생.
-            // 아마도 중복으로 사용하고있는 경우가 있는듯 하다.
-            // Alloc에서 중복된 것을 주었다?
-            // => Alloc시에 락프리에서 매번 Top가 Head인지 체크하는 부분이 빠졌었음.
-            // => 해결완료
+
             newTop->next = oldTop;
 
             temp.addr = (ull)newTop;

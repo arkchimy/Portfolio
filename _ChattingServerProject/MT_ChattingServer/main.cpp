@@ -128,13 +128,6 @@ int main()
         ChattingServer->hMonitorThread.join();
         CSystemLog::GetInstance()->Log(L"SystemLog.txt", en_LOG_LEVEL::SYSTEM_Mode, L" Success MonitorThread ");
 
-        //waitThread_Retval = WaitForSingleObject(ChattingServer->hMonitorThread.native_handle(), INFINITE);
-        //if (waitThread_Retval == WAIT_TIMEOUT)
-        //{
-        //    //TODO : 시간 정한다면 어찌할지 정하기.
-        //    __debugbreak();
-        //}
-        //CSystemLog::GetInstance()->Log(L"SystemLog.txt", en_LOG_LEVEL::SYSTEM_Mode, L"ContentsThread_Terminate");
 
     }
    

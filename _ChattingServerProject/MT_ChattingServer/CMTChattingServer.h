@@ -134,7 +134,7 @@ class CTestServer : public CLanServer
         Sector 자체의 템플릿을 SessionID로 둠으로써 SendPacket에 빠른 접근이 가능하도록하자.
         inline static std::set<ull>
     */
-    // TODO: 특정 인원이상 안늘어나게 조치.
+
     CObjectPool_UnSafeMT<stPlayer> player_pool;
 
     //SRWLOCK srw_SessionID_Hash; // SessionID_hash 소유권. OnRecv , BalanceThread에서 접근
