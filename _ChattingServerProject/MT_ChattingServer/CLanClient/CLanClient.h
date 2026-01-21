@@ -26,9 +26,9 @@ using ull = unsigned long long;
 #include "utility/DeadLockGuard/DeadLockGuard_lib.h"
 #include "utility/Profiler_MultiThread/Profiler_MultiThread.h"
 
-class CLanClient : public Stub, public Proxy
+class CLanClient : public CLanClientStub, public Proxy
 {
-    friend class Stub;
+    friend class CLanClientStub;
     friend class Proxy;
   public:
     CLanClient(bool EnCoding = false);

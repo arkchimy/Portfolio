@@ -54,20 +54,31 @@ class CLanServer : public Stub, public Proxy
   private:
     void WorkerThread();
     void AcceptThread();
+
   public:
     CLanServer(bool EnCoding = false);
     virtual ~CLanServer();
 
     // 오픈 IP / 포트 / 제로카피 여부 /워커스레드 수 (생성수, 러닝수) / 나글옵션 / 최대접속자 수
     virtual BOOL Start(const wchar_t *bindAddress, short port, int ZeroCopy, int WorkerCreateCnt, int maxConcurrency, int useNagle, int maxSessions);
-    
-    // Lock을 소유한 곳에서는 호출 금지. SignalOnForStop의 이벤트를 대기함.
-    virtual void Stop();           
+
+    // SignalOnForStop의 이벤트를 대기함.
+    virtual void Stop();     
 
     // Player가 0으로 떨어졌을때 반드시 호출 해줘야 함.
     virtual void SignalOnForStop();
 
+    // 호출자가 1초마다 호출을 책임져야함.
+    int getAcceptTPS();
+    // 호출자가 1초마다 호출을 책임져야함.
+    int getRecvMessageTPS();
+    // 호출자가 1초마다 호출을 책임져야함.
+    int getSendMessageTPS();
+
     bool Disconnect(const ull SessionID);
+
+  public:
+
     void CancelIO_Routine(const ull SessionID); // Session에 대한 안정성은  외부에서 보장해주세요.
 
     void DecrementIoCountAndMaybeDeleteSession(clsSession &session);
@@ -99,12 +110,9 @@ class CLanServer : public Stub, public Proxy
     ull getTotalAccept() const { return m_TotalAccept; }
     ull getNetworkMsgCount() const { return m_NetworkMsgCount; }
 
-    int getAcceptTPS();
-    int getRecvMessageTPS();
-    int getSendMessageTPS();
-
     void WSASendError(const DWORD LastError, const ull SessionID);
     void WSARecvError(const DWORD LastError, const ull SessionID);
+    // 실제로 Release를 하는 Overalpped을 PQCS하는 함수.
     void ReleaseSession(ull SessionID);
 
   protected:
@@ -132,8 +140,10 @@ class CLanServer : public Stub, public Proxy
     int m_WorkThreadCnt = 0;               // MonitorThread에서 WorkerThread의 갯수를 알기위한 변수.
 
     std::vector<LONG64> arrTPS;
-
+    LONG64 m_RecvTPS = 0;
     ull m_TotalAccept = 0;
+
+
     LONG64 m_AllocMsgCount = 0;
     LONG64 m_NetworkMsgCount = 0;
 
@@ -141,4 +151,7 @@ class CLanServer : public Stub, public Proxy
 
     bool bEnCording = false;
     int headerSize = 0;
+
+    // 15000명 대상으로 동시에 송출 시 54개 메세지.
+    ull SendBufferLimit = 100;
 };

@@ -106,11 +106,12 @@ void CLanServer::WorkerThread()
         }
         else if (overlapped == nullptr)
         {
+            // GQCS를 실패한 경우임. 위에서 처리하지 못하고 여기까지 오는 경우가 있는지에 대한 분기.
             CSystemLog::GetInstance()->Log(L"GQCS.txt", en_LOG_LEVEL::ERROR_Mode, L"GQCS Failed overlapped is nullptr : %05d", GetLastError());
             break;
         }
         session = reinterpret_cast<clsSession *>(key);
-        // TODO : JumpTable 생성 되는 지?
+
         switch (reinterpret_cast<stOverlapped *>(overlapped)->_mode)
         {
         case Job_Type::Recv:
@@ -501,6 +502,7 @@ void CLanServer::RecvComplete(clsSession &session, DWORD transferred)
         {
             Profiler profile(L"OnRecv");
             OnRecv(SessionID, msg);
+            Win32::AtomicIncrement<LONG64>(m_RecvTPS);
         }
     }
     RecvPacket(session);
@@ -869,15 +871,42 @@ void CLanServer::RecvPacket(clsSession &session)
 
 int CLanServer::getAcceptTPS()
 {
-    return 0;
+    static ull old_AcceptTps = 0;
+    ull retval;
+    ull current_AcceptTps = m_TotalAccept;
+
+    retval = current_AcceptTps - old_AcceptTps;
+    old_AcceptTps = current_AcceptTps;
+
+    return retval;
 }
 int CLanServer::getRecvMessageTPS()
 {
-    return 0;
+    static LONG64 old_RecvTps = 0;
+    LONG64 retval;
+    LONG64 current_RecvTps;
+
+
+    current_RecvTps = m_RecvTPS;
+
+    retval = current_RecvTps - old_RecvTps;
+    old_RecvTps = current_RecvTps;
+
+    
+    return (int)retval;
 }
 int CLanServer::getSendMessageTPS()
 {
-    return 0;
+    static std::vector<LONG64> before_arrTPS(m_WorkThreadCnt + 1, 0);
+    LONG64 total = 0;
+    for (int i = 0; i <= m_WorkThreadCnt; i++)
+    {
+        LONG64 old_arrTPS = arrTPS[i];
+        total += old_arrTPS - before_arrTPS[i];
+        before_arrTPS[i] = old_arrTPS;
+    }
+
+    return (int)total;
 }
 
 void CLanServer::WSASendError(const DWORD LastError, const ull SessionID)

@@ -1,0 +1,6 @@
+[submodule "tacopie"]
+    path = tacopie
+    url = https://github.com/cpp-redis/tacopie.git
+[submodule "googletest"]
+	path = googletest
+	url = https://github.com/google/googletest.git

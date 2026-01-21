@@ -73,5 +73,4 @@ class clsSession
     ull m_ioCount = 0;
     ull m_blive = 0;
     ull m_flag = 0; // SendFlag
-
 };

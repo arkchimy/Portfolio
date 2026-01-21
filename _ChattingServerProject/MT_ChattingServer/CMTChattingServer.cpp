@@ -40,15 +40,7 @@ void CTestServer::MonitorThread()
 
     HANDLE hWaitHandle = {m_ServerOffEvent};
 
-    LONG64 UpdateTPS;
-    LONG64 before_UpdateTPS = 0;
-
-    LONG64 RecvTPS;
-    LONG64 before_RecvTPS = 0;
-
-    std::vector<LONG64> before_arrTPS(m_WorkThreadCnt + 1, 0);
-    std::vector<LONG64> Send_arrTPS(m_WorkThreadCnt + 1, 0);
-
+    int AcceptTPS, UpdateTPS , SendTPS;
     LONG64 RecvMsgArr[en_PACKET_CS_CHAT__Max]{
         0,
     };
@@ -149,29 +141,22 @@ void CTestServer::MonitorThread()
         PDH_FMT_COUNTERVALUE Available_Byte_ByteVal;
         PDH_FMT_COUNTERVALUE Nonpaged_Byte_ByteVal;
 
-        PDH_FMT_COUNTERVALUE recvVal[3];
-        PDH_FMT_COUNTERVALUE sentVal[3];
-        PDH_FMT_COUNTERVALUE totalVal[3];
-        PDH_FMT_COUNTERVALUE vTcp4Retr, vTcp4Sent, vTcp4Recv;
+
+        PDH_FMT_COUNTERVALUE vTcp4Retr;
 
         currentTime = timeGetTime();
         nextTime; // 내가 목표로하는 이상적인 시간.
         nextTime = currentTime;
-        LONG64 TotalTPS  = 0;
+ 
         while (bMonitorThreadOn)
         {
             nextTime += 1000;
-            {
-                LONG64 old_UpdateTPS = m_UpdateTPS;
-                UpdateTPS = old_UpdateTPS - before_UpdateTPS;
-                before_UpdateTPS = old_UpdateTPS;
-            }
-            for (int i = 0; i <= m_WorkThreadCnt; i++)
-            {
-                LONG64 old_arrTPS = arrTPS[i];
-                Send_arrTPS[i] = old_arrTPS - before_arrTPS[i];
-                before_arrTPS[i] = old_arrTPS;
-            }
+
+            UpdateTPS = getRecvMessageTPS();
+            AcceptTPS = getAcceptTPS();
+            SendTPS = getSendMessageTPS();
+
+ 
 
             printf(" ============================================ Config ============================================ \n");
 
@@ -191,28 +176,13 @@ void CTestServer::MonitorThread()
             printf(" %-25s : %10lld\n", "Total iDisconnectCount", iDisCounnectCount);
             printf(" %100s \n", ProfilerFormat[Profiler::bOn]);
 
-            printf(" ============================================ Contents Thread TPS ========================================== \n");
-
-            printf(" Accept TPS           : %lld\n", Send_arrTPS[0]);
-            printf(" Update TPS           : %lld\n", UpdateTPS);
-
-            {
-                LONG64 old_RecvTPS = m_RecvTPS;
-                RecvTPS = old_RecvTPS - before_RecvTPS;
-                before_RecvTPS = old_RecvTPS;
-                printf(" Recv TPS : %lld\n", RecvTPS);
-            }
-            {
-                TotalTPS = 0;
-                for (int i = 1; i <= m_WorkThreadCnt; i++)
-                {
-                    TotalTPS += Send_arrTPS[i];
-                    printf("%20s %10lld \n", "Send TPS :", Send_arrTPS[i]);
-                }
-                printf(" ===================================================================================================== \n");
-                printf("%35s %10lld\n", "Total Send TPS :", TotalTPS);
-                printf(" ===================================================================================================== \n");
-            }
+            printf(" ============================================ Thread TPS ========================================== \n");
+            printf(" Accept TPS           : %d\n", AcceptTPS);
+            printf(" Update TPS           : %d\n", UpdateTPS);
+            printf(" ===================================================================================================== \n");
+            printf("%35s %10d\n", "Total Send TPS :", SendTPS);
+            printf(" ===================================================================================================== \n");
+            
 
             {
 
@@ -946,7 +916,7 @@ void CTestServer::DeletePlayer(CMessage *msg)
 }
 
 CTestServer::CTestServer(int ContentsThreadCnt, int iEncording)
-    : CLanServer(iEncording), m_ContentsThreadCnt(ContentsThreadCnt), m_RecvTPS(0), m_UpdateTPS(0), m_UpdateMessage_Queue(0)
+    : CLanServer(iEncording), m_ContentsThreadCnt(ContentsThreadCnt), m_UpdateTPS(0), m_UpdateMessage_Queue(0)
 {
     HRESULT hr;
     player_pool.Initalize(m_maxPlayers);
@@ -1429,7 +1399,6 @@ void CTestServer::OnRecv(ull SessionID, CMessage *msg)
         TargetQ->Push(msg);
     }
     SetEvent(hMsgQueuedEvent);
-    Win32::AtomicIncrement<LONG64>(m_RecvTPS);
 
     ContentsUseSize = TargetQ->m_size;
 }
