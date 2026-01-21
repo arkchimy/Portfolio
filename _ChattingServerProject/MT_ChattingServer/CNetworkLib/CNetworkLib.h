@@ -167,5 +167,5 @@ class CLanServer : public Stub, public Proxy
     int headerSize = 0;
 
     // 15000명 대상으로 동시에 송출 시 54개 메세지.
-    ull SendBufferLimit = 100;
+    ull SendBufferLimit = 200;
 };
