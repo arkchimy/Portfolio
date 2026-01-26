@@ -52,16 +52,14 @@ struct stReleaseOverlapped : stOverlapped
 class clsSession
 {
   public:
-    clsSession() 
-    {
-        const char ch[] = "CMessage"; 
-    }
+    clsSession() = default;
     clsSession(SOCKET sock);
     ~clsSession();
 
     void Release();
 
     SOCKET m_sock = 0;
+
     stOverlapped m_recvOverlapped = stOverlapped(Job_Type::Recv);
     stSendOverlapped m_sendOverlapped;
     stReleaseOverlapped m_releaseOverlapped;

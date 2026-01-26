@@ -132,7 +132,6 @@ void CLanClient::WorkerThread()
 
         if (local_IoCount == 0)
         {
-            __debugbreak();
             ull compareRetval = InterlockedCompareExchange(&session->m_ioCount, (ull)1 << 47, 0);
             if (compareRetval != 0)
             {
@@ -451,14 +450,11 @@ void CLanClient::RecvComplete(DWORD transferred)
                 CSystemLog::GetInstance()->Log(L"session_blive", en_LOG_LEVEL::ERROR_Mode, L" CheckSum Not Equle ");
                 InterlockedExchange(&session.m_blive, 0);
                 CancelIoEx((HANDLE)session.m_sock, &session.m_sendOverlapped);
-                static bool bOn = false;
-                if (bOn == false)
-                {
-                    bOn = true;
+     
                     CSystemLog::GetInstance()->Log(L"CLanClient_Attack", en_LOG_LEVEL::ERROR_Mode,
                                                    L"%-20s ",
                                                    L" false Packet CheckSum Not Equle ");
-                }
+                
                 stTlsObjectPool<CClientMessage>::Release(msg);
                 return;
             }

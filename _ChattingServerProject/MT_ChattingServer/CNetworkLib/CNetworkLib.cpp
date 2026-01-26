@@ -190,7 +190,8 @@ void CLanServer::AcceptThread()
         client_sock = accept(m_listen_sock, (sockaddr *)&addr, &addrlen);
         if (client_sock == INVALID_SOCKET)
         {
-            CSystemLog::GetInstance()->Log(L"Socket_Error.txt", en_LOG_LEVEL::ERROR_Mode, L"accept Reseult INVALID_SOCKET  GetLastError : %05d", GetLastError());
+            CSystemLog::GetInstance()->Log(L"Socket_Error.txt", en_LOG_LEVEL::ERROR_Mode,
+                L"accept Reseult INVALID_SOCKET  GetLastError : %05d", GetLastError());
             break;
         }
 
@@ -214,14 +215,13 @@ void CLanServer::AcceptThread()
         // Session 초기화 부분.
         {
             ull m_SeqID = (idx << 47) + session_id++;
-
-
             session.m_sock = client_sock;
             session.m_blive = true;
             session.m_flag = 0;
 
             InterlockedExchange(&session.m_SeqID, m_SeqID);
-            InterlockedExchange(&session.m_ioCount, 1); // 1로 시작하므로써 0으로 초기화때 Contents에서 오인하는 일을 방지.
+            // 1로 시작하므로써 Contents에서 오인하는 일을 방지.
+            InterlockedExchange(&session.m_ioCount, 1);
         }
 
         _interlockedincrement64(&m_SessionCount);
@@ -480,14 +480,11 @@ void CLanServer::RecvComplete(clsSession &session, DWORD transferred)
                 // Attack : 조작된 패킷으로 checkSum이 다름.
                 InterlockedExchange(&session.m_blive, 0);
                 CancelIoEx((HANDLE)session.m_sock, &session.m_sendOverlapped);
-                static bool bOn = false;
-                if (bOn == false)
-                {
-                    bOn = true;
-                    CSystemLog::GetInstance()->Log(L"Attack", en_LOG_LEVEL::ERROR_Mode,
-                                                   L"%-20s ",
-                                                   L" false Packet CheckSum Not Equle ");
-                }
+          
+                CSystemLog::GetInstance()->Log(L"Attack", en_LOG_LEVEL::ERROR_Mode,
+                                                L"%-20s ",
+                                                L" false Packet CheckSum Not Equle ");
+                
                 stTlsObjectPool<CMessage>::Release(msg);
                 return;
                 

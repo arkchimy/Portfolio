@@ -465,15 +465,11 @@ void CLanServer::RecvComplete(clsSession &session, DWORD transferred)
                 // Attack : 조작된 패킷으로 checkSum이 다름.
                 InterlockedExchange(&session.m_blive, 0);
                 CancelIoEx((HANDLE)session.m_sock, &session.m_sendOverlapped);
-                static bool bOn = false;
-                if (bOn == false)
-                {
-                    bOn = true;
-                    CSystemLog::GetInstance()->Log(L"Attack", en_LOG_LEVEL::ERROR_Mode,
-                                                   L"%-20s ",
-                                                   L" false Packet CheckSum Not Equle ");
-                    __debugbreak();
-                }
+          
+                CSystemLog::GetInstance()->Log(L"Attack", en_LOG_LEVEL::ERROR_Mode,
+                                                L"%-20s ",
+                                                L" false Packet CheckSum Not Equle ");
+                
                 stTlsObjectPool<CMessage>::Release(msg);
                 return;
             }

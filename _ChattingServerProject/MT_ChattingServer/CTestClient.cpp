@@ -63,16 +63,19 @@ void CTestClient::OnEnterJoinServer(ull SessionID)
     int ServerNo = 11;
     stPlayer *player;
 
-    std::lock_guard<SharedMutex> sessionHashLock(sessiondhash_lock);
+    //std::lock_guard<SharedMutex> sessionHashLock(sessiondhash_lock);
     auto iter = sessiondID_Hash.find(SessionID);
     if (iter != sessiondID_Hash.end())
     {
         __debugbreak();
     }
 
+
     player = (stPlayer*)player_Pool.Alloc();
     player->m_SeqID = SessionID;
 
+    sessiondID_Hash.insert({SessionID, player});
+    
     msg->ownerID = SessionID;
 
     *msg << en_PACKET_SS_MONITOR_LOGIN;
@@ -92,7 +95,6 @@ void CTestClient::OnLeaveServer()
 
     wchar_t ip[16];
     unsigned short port;
-
     parser.GetValue(L"MonitorServer_IP_Address", ip, 16);
     parser.GetValue(L"MonitorServer_IP_Port", port);
 
@@ -102,7 +104,7 @@ void CTestClient::OnLeaveServer()
 
    
 
-    std::lock_guard<SharedMutex> sessionHashLock(sessiondhash_lock);
+    //std::lock_guard<SharedMutex> sessionHashLock(sessiondhash_lock);
     ull SessionID = session.m_SeqID;
 
     auto iter = sessiondID_Hash.find(SessionID);

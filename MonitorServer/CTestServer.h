@@ -103,7 +103,8 @@ class CTestServer : public CLanServer
     // 정보 추가
     void HandleDBLogPost(CMessage *msg);
     void DB_LogPost(BYTE ServerNo, BYTE DataType, int DataValue, int TimeStamp);
-
+    // 하트비트
+    void HeartBeatThread();
 
 
     void MonitorThread();
@@ -141,6 +142,7 @@ class CTestServer : public CLanServer
     WinThread _hDBWorkerThread;
     WinThread _hDBTimerThread;
     WinThread _hMonitorThread;
+    WinThread _hHeartBeatThread;
 
 
     bool bOn = true;

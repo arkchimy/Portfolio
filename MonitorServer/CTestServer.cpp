@@ -69,6 +69,7 @@ CTestServer::CTestServer(bool EnCoding)
     _hDBWorkerThread = WinThread(&CTestServer::DBWorkerThread, this);
     _hDBTimerThread = WinThread(&CTestServer::DBTimerThread, this);
     _hMonitorThread = WinThread(&CTestServer::MonitorThread, this);
+    _hHeartBeatThread = WinThread(&CTestServer::HeartBeatThread, this);
 }
 
 void CTestServer::DBWorkerThread()
@@ -314,6 +315,49 @@ void CTestServer::DB_LogPost(BYTE ServerNo, BYTE DataType, int DataValue, int Ti
     PostQueuedCompletionStatus(m_hDBIOCP, 0, NULL, overlapped);
     Win32::AtomicIncrement(m_DBMessageCnt);
 
+}
+
+void CTestServer::HeartBeatThread()
+{
+    DWORD currentTime;
+    DWORD distance ;
+    while (1)
+    {
+        currentTime = timeGetTime();
+        {
+            std::shared_lock<SharedMutex> waitlock(waitLogin_hash_Lock);
+
+            for (auto &element : waitLogin_hash)
+            {
+                distance = currentTime - element.second->m_Timer;
+                if (distance >= 7000)
+                {
+                    CSystemLog::GetInstance()->Log(L"Contents_DisConnect", en_LOG_LEVEL::ERROR_Mode,
+                                                   L"%-10s %10s %d %05lld ",
+                                                   L"HeartBeat_waitSession", L"Timer Distance", distance,
+                                                   element.first);
+                    Disconnect(element.first);
+                }
+            }
+        }
+        {
+            std::shared_lock<SharedMutex> sessionlock(SessionID_hash_Lock);
+
+            for (auto &element : SessionID_hash)
+            {
+                distance = currentTime - element.second->m_Timer;
+                if (distance >= 7000)
+                {
+                    CSystemLog::GetInstance()->Log(L"Contents_DisConnect", en_LOG_LEVEL::ERROR_Mode,
+                                                   L"%-10s %10s %d %05lld ",
+                                                   L"HeartBeat_Session", L"Timer Distance", distance,
+                                                   element.first);
+                    Disconnect(element.first);
+                }
+            }
+        }
+        Sleep(10000);
+    }
 }
 
 
@@ -643,7 +687,14 @@ void CTestServer::REQ_MONITOR_UPDATE(ull SessionID, CMessage *msg, BYTE DataType
         CSystemLog::GetInstance()->Log(L"MonitorServer_DisConnect", en_LOG_LEVEL::SYSTEM_Mode, L"LoginPacket Not Recv");
         return;
     }
-
+    if (iter->second->m_type == enClientType::MonitorClient)
+    {
+        // Tool 로 연결되었는데 업데이트 메세지를 보냄.
+        stTlsObjectPool<CMessage>::Release(msg);
+        Disconnect(SessionID);
+        CSystemLog::GetInstance()->Log(L"Attack", en_LOG_LEVEL::ERROR_Mode, L"Tool Send UpdateMsg");
+        return;
+    }
     std::vector<ull> sendTarget;
     for (auto &element : SessionID_hash)
     {
@@ -653,6 +704,8 @@ void CTestServer::REQ_MONITOR_UPDATE(ull SessionID, CMessage *msg, BYTE DataType
     DB_LogPost(iter->second->m_ServerNo, DataType, DataValue, TimeStamp);
 
     Proxy::RES_MONITOR_UPDATE(SessionID, msg, iter->second->m_ServerNo, DataType, DataValue, TimeStamp, en_PACKET_CS_MONITOR_TOOL_DATA_UPDATE, true, &sendTarget, sendTarget.size());
+    
+    iter->second->m_Timer = timeGetTime();
 }
 
 void CTestServer::REQ_MONITOR_TOOL_LOGIN(ull SessionID, CMessage *msg, WCHAR *LoginSessionKey, WORD wType, BYTE bBroadCast, std::vector<ull> *pIDVector, size_t wVectorLen)
