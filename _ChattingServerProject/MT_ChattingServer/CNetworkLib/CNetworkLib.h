@@ -166,6 +166,8 @@ class CLanServer : public Stub, public Proxy
     bool bEnCording = false;
     int headerSize = 0;
 
-    // 15000명 대상으로 동시에 송출 시 54개 메세지.
+    // SendBuffer가 가득차는 역할.
     ull SendBufferLimit = 2000;
+    // 메세지 하나의 최대크기 제한.
+    USHORT max_MsgLen = 5000;
 };

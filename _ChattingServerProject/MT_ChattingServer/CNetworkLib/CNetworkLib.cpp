@@ -451,14 +451,35 @@ void CLanServer::RecvComplete(clsSession &session, DWORD transferred)
     ringBufferSize useSize;
 
     ull SessionID;
+    // 한번의 루프에 Msg카운트를 제한함.
+    short msgCount;
     bool bChkSum = false;
     {
         session.m_recvBuffer.MoveRear(transferred);
         SessionID = session.m_SeqID;
     }
     // Header의 크기만큼을 확인.
+
+    msgCount = 0;
     while (session.m_recvBuffer.Peek(&header, headerSize) == headerSize)
     {
+        msgCount++;
+        // OverSend를 150개 이상하였다면 끊기.
+        if (msgCount >= 150)
+        {
+            Disconnect(session.m_SeqID);
+            CSystemLog::GetInstance()->Log(L"Attack", en_LOG_LEVEL::ERROR_Mode,
+                                           L"%-20s ",
+                                           L" OverSend Count ");
+            return;
+        }
+        // sDataLen 을 크게 작성하여 공격하는 경우.
+        // 하나의 메세지
+        if (header.sDataLen >= max_MsgLen)
+        {
+            Disconnect(session.m_SeqID);
+            return;
+        }
         useSize = session.m_recvBuffer.GetUseSize();
         if (useSize < header.sDataLen + headerSize)
         {
@@ -468,7 +489,11 @@ void CLanServer::RecvComplete(clsSession &session, DWORD transferred)
         // 메세지 생성
         CMessage *msg = CreateMessage(session, header);
         if (msg == nullptr)
-            break;
+        {
+            // CreateMessage에서 Dequeue에서 문제가 일어났다는 뜻.
+            Disconnect(session.m_SeqID);
+            return;
+        }
         if (bEnCording)
         {
             {
@@ -767,8 +792,14 @@ void CLanServer::Unicast(ull SessionID, CMessage *msg, LONG64 Account)
 
         PostQueuedCompletionStatus(m_hIOCP, 0, (ULONG_PTR)&session, &session.m_sendOverlapped);
     }
-    if(session.m_sendBuffer.m_size == SendBufferLimit)
+    if(session.m_sendBuffer.m_size >= SendBufferLimit)
+    {
         Disconnect(SessionID);
+        CSystemLog::GetInstance()->Log(L"Attack", en_LOG_LEVEL::SYSTEM_Mode,
+                                       L"%-20s %-10s,%llu",
+                                       L"UnitCast_sendBuffer.m_size == SendBufferLimit",
+                                       L"SessionID :", SessionID);
+    }
     SessionUnLock(SessionID);
 }
 void CLanServer::BroadCast(ull SessionID, CMessage *msg, std::vector<ull> *pIDVector, size_t wVecLen)
@@ -801,8 +832,14 @@ void CLanServer::BroadCast(ull SessionID, CMessage *msg, std::vector<ull> *pIDVe
 
             PostQueuedCompletionStatus(m_hIOCP, 0, (ULONG_PTR)&session, &session.m_sendOverlapped);
         }
-        if (session.m_sendBuffer.m_size == SendBufferLimit)
-            Disconnect(SessionID);
+        if (session.m_sendBuffer.m_size >= SendBufferLimit)
+        {
+            Disconnect(currentSessionID);
+            CSystemLog::GetInstance()->Log(L"Attack", en_LOG_LEVEL::SYSTEM_Mode,
+                                           L"%-20s %-10s,%llu",
+                                           L"Broad_sendBuffer.m_size == SendBufferLimit",
+                                           L"SessionID :", currentSessionID);
+        }
 
         SessionUnLock(currentSessionID);
     }

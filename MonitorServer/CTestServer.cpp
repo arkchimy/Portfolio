@@ -345,6 +345,9 @@ void CTestServer::HeartBeatThread()
 
             for (auto &element : SessionID_hash)
             {
+                // Tool Client는 하트비트 제외
+                if (element.second->m_type == enClientType::MonitorClient)
+                    continue;
                 distance = currentTime - element.second->m_Timer;
                 if (distance >= 7000)
                 {
