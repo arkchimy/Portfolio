@@ -151,7 +151,7 @@ void CTestServer::HandleDBLogInsert(CMessage *msg)
     static ull rowCount = 0;
 
     if (msg != nullptr)
-        //__debugbreak(); // Timer가 nullptr로 보내는 게 정상
+        __debugbreak(); // Timer가 nullptr로 보내는 게 정상
 
     // DBWorkerThread 단일이라면, 여기서 _dbinfoSet_hash 접근은 락 없이도 OK
     // (Post도 동일 쓰레드에서 HandleDBLogPost로만 push하니까)
@@ -269,6 +269,7 @@ void CTestServer::HandleDBLogInsert(CMessage *msg)
         // 남은 것 flush
         flushCurrentInsert();
     }
+    stTlsObjectPool<CMessage>::Release(msg);
 }
 
 

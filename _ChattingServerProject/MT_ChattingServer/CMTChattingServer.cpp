@@ -333,10 +333,12 @@ void CTestServer::MonitorThread()
                 //InterlockedExchange((DWORD *)&g_MonitorData[enMonitorType::TimeStamp], currenttt);
                 LONG64 totalCountentSize = 0;
 
-                for (auto& contentQ : m_CotentsQ_vec)
+                // Balance Á¦¿Ü
+                for (int i =1; i < m_CotentsQ_vec.size(); i++)
                 {
-                    totalCountentSize += contentQ.m_size;
+                    totalCountentSize += m_CotentsQ_vec[i].m_size;
                 }
+             
                 g_MonitorData[enMonitorType::TimeStamp] = (int)currenttt;
                 g_MonitorData[enMonitorType::On] = getServerisOn();
                 g_MonitorData[enMonitorType::Cpu] = (int)CPUTime.ProcessTotal();
