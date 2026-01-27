@@ -133,7 +133,6 @@ void CLanServer::WorkerThread()
 
         default:
             CSystemLog::GetInstance()->Log(L"GQCS.txt", en_LOG_LEVEL::ERROR_Mode, L"UnDefine Error Overlapped_mode : %d", reinterpret_cast<stOverlapped *>(overlapped)->_mode);
-            __debugbreak();
         }
         local_IoCount = InterlockedDecrement(&session->m_ioCount);
 
@@ -209,9 +208,6 @@ void CLanServer::AcceptThread()
         }
 
         clsSession &session = sessions_vec[idx];
-
-        if (session.m_sendBuffer.m_size != 0)
-            __debugbreak();
         // Session 초기화 부분.
         {
             ull m_SeqID = (idx << 47) + session_id++;
@@ -269,6 +265,13 @@ CLanServer::CLanServer(bool EnCoding)
     {
         CSystemLog::GetInstance()->Log(L"Socket_Error.txt", en_LOG_LEVEL::ERROR_Mode, L"listen_sock Create Socket Error %d", GetLastError());
         __debugbreak();
+    }
+    Parser parser;
+    {
+        if (parser.LoadFile(L"Config.txt") == false)
+            CSystemLog::GetInstance()->Log(L"ParserError.txt", en_LOG_LEVEL::ERROR_Mode, L"LoadFileError %d", GetLastError());
+        parser.GetValue(L"SendBufferLimit", SendBufferLimit);
+        parser.GetValue(L"max_MsgLen", max_MsgLen);
     }
 }
 CLanServer::~CLanServer()

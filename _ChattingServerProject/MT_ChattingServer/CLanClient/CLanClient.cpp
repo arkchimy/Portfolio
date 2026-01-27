@@ -106,7 +106,7 @@ void CLanClient::WorkerThread()
             break;
         default:
             CSystemLog::GetInstance()->Log(L"GQCS.txt", en_LOG_LEVEL::DEBUG_Mode, L"UnDefine Error Overlapped_mode : %d", reinterpret_cast<stClientOverlapped *>(overlapped)->_mode);
-            __debugbreak();
+   
         }
         local_IoCount = InterlockedDecrement(&session->m_ioCount);
         switch (reinterpret_cast<stClientOverlapped *>(overlapped)->_mode)
@@ -126,7 +126,7 @@ void CLanClient::WorkerThread()
             break;
         default:
             CSystemLog::GetInstance()->Log(L"GQCS.txt", en_LOG_LEVEL::ERROR_Mode, L"UnDefine Error Overlapped_mode : %d", reinterpret_cast<stClientOverlapped *>(overlapped)->_mode);
-            __debugbreak();
+    
         }
         
 
@@ -661,7 +661,6 @@ void CLanClient::WSASendError(const DWORD LastError)
     case WSA_IO_PENDING:
         if (session.m_blive == 0)
         {
-            __debugbreak();
             CancelIoEx((HANDLE)session.m_sock, &session.m_sendOverlapped);
         }
         break;
@@ -695,7 +694,6 @@ void CLanClient::WSARecvError(const DWORD LastError)
     case WSA_IO_PENDING:
         if (session.m_blive == 0)
         {
-            __debugbreak();
             CancelIoEx((HANDLE)session.m_sock, &session.m_recvOverlapped);
         }
         break;
