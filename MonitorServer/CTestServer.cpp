@@ -269,7 +269,7 @@ void CTestServer::HandleDBLogInsert(CMessage *msg)
         // ³²Àº °Í flush
         flushCurrentInsert();
     }
-    stTlsObjectPool<CMessage>::Release(msg);
+    
 }
 
 
@@ -549,9 +549,42 @@ bool CTestServer::OnAccept(ull SessionID, SOCKADDR_IN &addr)
 
 void CTestServer::OnRecv(ull SessionID, CMessage *msg)
 {
-    WORD type;
-    *msg >> type;
-    if (PacketProc(SessionID, msg, type) == false)
+    WORD wType;
+    try
+    {
+        *msg >> wType;
+    }
+    catch (const MessageException &e)
+    {
+        switch (e.type())
+        {
+        case MessageException::ErrorType::HasNotData:
+        {
+
+            CSystemLog::GetInstance()->Log(L"Attack", en_LOG_LEVEL::ERROR_Mode,
+                                           L"%-20s %20s %05d  ",
+                                           L" msg >> Data  Faild ",
+                                           L"wType", wType);
+
+            break;
+        }
+        case MessageException::ErrorType::NotEnoughSpace:
+        {
+
+            CSystemLog::GetInstance()->Log(L"Attack", en_LOG_LEVEL::ERROR_Mode,
+                                           L"%-20s %20s %05d  ",
+                                           L"NotEnoughSpace  : ",
+                                           L"wType", wType);
+        }
+            msg->HexLog(CMessage::en_Tag::_ERROR, L"Attack.txt");
+            break;
+        }
+        stTlsObjectPool<CMessage>::Release(msg);
+        Disconnect(SessionID);
+        return;
+    }
+
+    if (PacketProc(SessionID, msg, wType) == false)
     {
         CSystemLog::GetInstance()->Log(L"MonitorServer_DisConnect", en_LOG_LEVEL::SYSTEM_Mode, L" PacketProc false return ");
         stTlsObjectPool<CMessage>::Release(msg);
@@ -709,9 +742,14 @@ void CTestServer::REQ_MONITOR_UPDATE(ull SessionID, CMessage *msg, BYTE DataType
             sendTarget.emplace_back(element.first);
     }
     DB_LogPost(iter->second->m_ServerNo, DataType, DataValue, TimeStamp);
-
-    Proxy::RES_MONITOR_UPDATE(SessionID, msg, iter->second->m_ServerNo, DataType, DataValue, TimeStamp, en_PACKET_CS_MONITOR_TOOL_DATA_UPDATE, true, &sendTarget, sendTarget.size());
-    
+    if (sendTarget.size() != 0)
+    {
+        Proxy::RES_MONITOR_UPDATE(SessionID, msg, iter->second->m_ServerNo, DataType, DataValue, TimeStamp, en_PACKET_CS_MONITOR_TOOL_DATA_UPDATE, true, &sendTarget, sendTarget.size());
+    }
+    else
+    {
+        stTlsObjectPool<CMessage>::Release(msg);
+    }
     iter->second->m_Timer = timeGetTime();
 }
 
