@@ -109,7 +109,7 @@ void CTestServer::MonitorThread()
         DWORD currentTime;
         DWORD nextTime; // 내가 목표로하는 이상적인 시간.
 
-        size_t MaxSessions = sessions_vec.size();
+        size_t MaxSessions = getMaxSessionCnt();
 
         char ProfilerFormat[2][30] = {
             "Profiler_Mode : Off\n",
@@ -214,7 +214,7 @@ void CTestServer::MonitorThread()
                 {
                     // InterlockedExchange((DWORD *)&g_MonitorData[enMonitorType::TimeStamp], currenttt);
                     g_MonitorData[enMonitorType::TimeStamp] = (int)currenttt;
-                    g_MonitorData[enMonitorType::On] = bOn;
+                    g_MonitorData[enMonitorType::On] = getServerisOn();
                     g_MonitorData[enMonitorType::Cpu] = (int)CPUTime.ProcessTotal();
                     g_MonitorData[enMonitorType::Memory] = (int)(Process_PrivateByteVal.largeValue / 1024 / 1024);
                     g_MonitorData[enMonitorType::SessionCnt] = (int)GetSessionCount();
@@ -229,7 +229,7 @@ void CTestServer::MonitorThread()
                 printf(" ====================================================================== \n");
                 printf("%20s : %10lld\n", "DBQuery_RemainCount", m_DBMessageCnt);
                 printf("%20s : %10lld\n", "Total Account", cnt);
-                printf("%20s : %10lld\n", "DisConnectConunt", iDisCounnectCount);
+                printf("%20s : %10lld\n", "DisConnectConunt", getDisConnectCnt());
                 printf("%20s : %10lld\n", "SessionID_hash.size", SessionID_hash.size());
                 printf("%20s : %10d\n", "player_pool.ActiveCnt", player_pool.m_AllocatedCount);
                 printf("%20s : %10d\n", "dbOverlapped_pool.iNodeCnt", dbOverlapped_pool.iNodeCnt);
@@ -511,10 +511,6 @@ void CTestServer::OnRecv(ull SessionID, CMessage *msg)
     PacketProc(SessionID,msg,type);
 }
 
-void CTestServer::OnSend(ull SessionID)
-{
-    //Disconnect(SessionID);
-}
 
 bool CTestServer::OnAccept(ull SessionID, SOCKADDR_IN &addr)
 {
