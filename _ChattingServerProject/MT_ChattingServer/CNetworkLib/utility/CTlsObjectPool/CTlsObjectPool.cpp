@@ -133,7 +133,9 @@ PVOID stTlsObjectPool<CMessage>::Alloc()
     CMessage *msg = reinterpret_cast<CMessage *>(node);
     msg->InitMessage();
     if (msg->_frontPtr == nullptr)
+    {
         __debugbreak();
+    }
     CSystemLog::GetInstance()->Log(L"CMessage", en_LOG_LEVEL::DEBUG_Mode, L"%10s %10s : %08p %10s %08p %10s %llu",
                                    L"Alloc ", L"Node ", node, L"PoolAddress ", pool->releasePool, L"m_size", pool->allocPool->m_size);
     InterlockedIncrement(&s_ActiveNode);
@@ -159,7 +161,9 @@ void stTlsObjectPool<CMessage>::Release(PVOID node)
 
     // UseCnt를 잘못 감소 시킨 경우 
     if (iUseCnt < 0)
+    {
         __debugbreak();
+    }
     if (iUseCnt != 0)
         return;
     localReleaseCnt = InterlockedIncrement64(&ReleaseCnt);

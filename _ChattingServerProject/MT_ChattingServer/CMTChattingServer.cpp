@@ -1165,7 +1165,9 @@ void CTestServer::BalanceUpdate()
     {
 
         if (CotentsQ->Pop(msg) == false)
-            __debugbreak();
+        {
+            //__debugbreak();
+        }
 
         l_sessionID = msg->ownerID;
 

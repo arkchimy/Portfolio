@@ -66,7 +66,9 @@ class CObjectPool_UnSafeMT
             m_size--;
         }
         if (m_size != 0)
+        {
             __debugbreak();
+        }
     }
     void Initalize(DWORD iSize)
     {

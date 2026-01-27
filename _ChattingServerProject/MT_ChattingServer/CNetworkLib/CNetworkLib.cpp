@@ -102,7 +102,7 @@ void CLanServer::WorkerThread()
         if (overlapped == nullptr && bGQCS)
         {
             CSystemLog::GetInstance()->Log(L"GQCS.txt", en_LOG_LEVEL::ERROR_Mode, L"GetQueuedCompletionStatus Overlapped is nullptr");
-            __debugbreak(); 
+            //__debugbreak(); 
         }
         else if (overlapped == nullptr)
         {
@@ -252,7 +252,9 @@ CLanServer::CLanServer(bool EnCoding)
 {
     hReadyForStopEvent = CreateEvent(nullptr,true, false, nullptr);
     if (hReadyForStopEvent == nullptr)
-        __debugbreak();
+    {
+        //__debugbreak();
+    }
 
 
     if (bEnCording)
@@ -264,7 +266,7 @@ CLanServer::CLanServer(bool EnCoding)
     if (m_listen_sock == INVALID_SOCKET)
     {
         CSystemLog::GetInstance()->Log(L"Socket_Error.txt", en_LOG_LEVEL::ERROR_Mode, L"listen_sock Create Socket Error %d", GetLastError());
-        __debugbreak();
+        //__debugbreak();
     }
     Parser parser;
     {
@@ -879,7 +881,9 @@ void CLanServer::RecvPacket(clsSession &session)
     }
 
     if (freeSize < directEnQsize)
-        __debugbreak();
+    {
+        //__debugbreak();
+    }
     if (freeSize <= directEnQsize)
     {
         localRecvWSABuf[0].buf = r;

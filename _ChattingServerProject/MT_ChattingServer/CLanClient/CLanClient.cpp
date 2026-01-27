@@ -329,7 +329,9 @@ void CLanClient::RecvPacket(clsClientSession &session)
     }
 
     if (freeSize < directEnQsize)
+    {
         __debugbreak();
+    }
     if (freeSize <= directEnQsize)
     {
         localRecvWSABuf[0].buf = r;
@@ -582,7 +584,9 @@ void CLanClient::ReleaseComplete()
 void CLanClient::ReleaseSession(ull SessionID)
 {
     if (session.m_SeqID != SessionID)
+    {
         __debugbreak();
+    }
 
     CSystemLog::GetInstance()->Log(L"CLanClientError", en_LOG_LEVEL::SYSTEM_Mode, L"ReleaseSession");
 

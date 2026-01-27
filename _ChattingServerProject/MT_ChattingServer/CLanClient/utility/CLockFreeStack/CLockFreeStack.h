@@ -53,7 +53,9 @@ class CLockFreeStack
         }
 
         if (m_top != dummy)
+        {
             __debugbreak();
+        }
 
         m_pool.Release(reinterpret_cast<stNode *>((LONG64)dummy & ADDR_MASK));
     }

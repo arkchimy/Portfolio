@@ -96,7 +96,9 @@ class CObjectPool
             _InterlockedDecrement(&iNodeCnt);
         }
         if (iNodeCnt != 0)
+        {
             __debugbreak();
+        }
     }
     stNode<T> *Alloc()
     {

@@ -31,10 +31,14 @@ struct stTlsObjectPoolManager
     {
         Parser parser;
         if (parser.LoadFile(L"Config.txt") == false)
+        {
             __debugbreak();
+        }
 
         if (parser.GetValue(L"tlsPool_init_Capacity", tlsPool_init_Capacity) == false)
+        {
             __debugbreak();
+        }
     }
     struct stNode
     {

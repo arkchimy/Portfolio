@@ -67,7 +67,7 @@ void CTestClient::OnEnterJoinServer(ull SessionID)
     auto iter = sessiondID_Hash.find(SessionID);
     if (iter != sessiondID_Hash.end())
     {
-        __debugbreak();
+        //__debugbreak();
     }
 
 
@@ -110,7 +110,7 @@ void CTestClient::OnLeaveServer()
     auto iter = sessiondID_Hash.find(SessionID);
     if (iter == sessiondID_Hash.end())
     {
-        __debugbreak();
+        //__debugbreak();
     }
 
     player = iter->second;

@@ -131,8 +131,6 @@ PVOID stTlsObjectPool<CClientMessage>::Alloc()
 
     CClientMessage *msg = reinterpret_cast<CClientMessage *>(node);
     msg->InitMessage();
-    if (msg->_frontPtr == nullptr)
-        __debugbreak();
     CSystemLog::GetInstance()->Log(L"CMessage", en_LOG_LEVEL::DEBUG_Mode, L"%10s %10s : %08p %10s %08p %10s %llu",
                                    L"Alloc ", L"Node ", node, L"PoolAddress ", pool->releasePool, L"m_size", pool->allocPool->m_size);
     
@@ -154,15 +152,14 @@ void stTlsObjectPool<CClientMessage>::Release(PVOID node)
 
 
     msg = reinterpret_cast<CClientMessage *>(node);
-    if (msg->K == 0x32)
-        __debugbreak();
-
     iUseCnt = InterlockedDecrement64(&msg->iUseCnt);
 
 
     // UseCnt를 잘못 감소 시킨 경우 
     if (iUseCnt < 0)
+    {
         __debugbreak();
+    }
     if (iUseCnt != 0)
         return;
 

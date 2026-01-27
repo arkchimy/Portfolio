@@ -37,9 +37,13 @@ CTlsLockFreeQueue<T>::CTlsLockFreeQueue()
     m_NullptrNode = reinterpret_cast<stNode *>(stTlsObjectPool<T>::Alloc());
     Dummy = reinterpret_cast<stNode *>(stTlsObjectPool<T>::Alloc());
     if (m_NullptrNode == nullptr)
+    {
         __debugbreak();
+    }
     if (Dummy == nullptr)
+    {
         __debugbreak();
+    }
     m_NullptrNode->next = nullptr;
     Dummy->next = m_NullptrNode;
 
@@ -114,7 +118,9 @@ void CTlsLockFreeQueue<T>::Push(T data)
         InterlockedCompareExchangePointer((PVOID *)&_tail, newNode, tail);
     }
     if (m_NullptrNode->next != nullptr)
+    {
         __debugbreak();
+    }
 
 }
 
@@ -169,7 +175,9 @@ bool CTlsLockFreeQueue<T>::Pop(__out T &outData)
     } while (1);
 
     if (m_NullptrNode->next != nullptr)
+    {
         __debugbreak();
+    }
     stTlsObjectPool<T>::Release(headAddr);
 
     return true;

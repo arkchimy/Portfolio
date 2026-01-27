@@ -98,7 +98,9 @@ void CTestServer::DBWorkerThread()
 
         dbOverlapped = reinterpret_cast<stDBOverlapped *>(overlapped);
         if (overlapped == nullptr)
-            __debugbreak();
+        {
+            //__debugbreak();
+        }
         switch (dbOverlapped->_mode)
         {
         case Job_Type::Post:
@@ -149,7 +151,7 @@ void CTestServer::HandleDBLogInsert(CMessage *msg)
     static ull rowCount = 0;
 
     if (msg != nullptr)
-        __debugbreak(); // Timer가 nullptr로 보내는 게 정상
+        //__debugbreak(); // Timer가 nullptr로 보내는 게 정상
 
     // DBWorkerThread 단일이라면, 여기서 _dbinfoSet_hash 접근은 락 없이도 OK
     // (Post도 동일 쓰레드에서 HandleDBLogPost로만 push하니까)
@@ -205,7 +207,7 @@ void CTestServer::HandleDBLogInsert(CMessage *msg)
                     printf("Insert Error: %s\nSQL tail: %.200s\n", r.Error().c_str(),
                            sql.size() > 200 ? (sql.c_str() + sql.size() - 200) : sql.c_str());
                     CSystemLog::GetInstance()->Log(L"DB_Query", en_LOG_LEVEL::SYSTEM_Mode, L"DB_Qeury Request Falied ");
-                    __debugbreak();
+                    //__debugbreak();
                 }
             }
             CSystemLog::GetInstance()->Log(L"DB_Query", en_LOG_LEVEL::SYSTEM_Mode, L"DB_Qeury Request Success total_Row %lld ", rowCount);
@@ -597,7 +599,6 @@ void CTestServer::OnRelease(ull SessionID)
         }
     }
 
-    __debugbreak();
 }
 
 void CTestServer::REQ_MONITOR_LOGIN(ull SessionID, CMessage *msg, int ServerNo, WORD wType, BYTE bBroadCast, std::vector<ull> *pIDVector, size_t wVectorLen)
@@ -671,7 +672,9 @@ void CTestServer::REQ_MONITOR_LOGIN(ull SessionID, CMessage *msg, int ServerNo, 
 
         auto iter = SessionID_hash.find(SessionID);
         if (iter != SessionID_hash.end())
-            __debugbreak();
+        {
+            //__debugbreak();
+        }
         SessionID_hash.insert({SessionID, player});
     }
 }
@@ -713,7 +716,7 @@ void CTestServer::REQ_MONITOR_UPDATE(ull SessionID, CMessage *msg, BYTE DataType
 
 void CTestServer::REQ_MONITOR_TOOL_LOGIN(ull SessionID, CMessage *msg, WCHAR *LoginSessionKey, WORD wType, BYTE bBroadCast, std::vector<ull> *pIDVector, size_t wVectorLen)
 {
-    clsSession &session = sessions_vec[SessionID >> 47];
+    clsSession &session = GetSession(SessionID);
     stPlayer *player;
 
     char Loginkey[33]{0,};
@@ -792,6 +795,6 @@ void CTestServer::EnsureMonthlyLogTable(const char *yyyymm)
     if (!r.Sucess())
     {
         printf("EnsureMonthlyLogTable Error: %s\n", r.Error().c_str());
-        __debugbreak();
+        //__debugbreak();
     }
 }
