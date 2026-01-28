@@ -221,6 +221,7 @@ class CDB
         {
             out._bSuccess = false;
             out._err = mysql_error(_connection);
+            free(Querybuffer);
             return out;
         }
 
@@ -232,6 +233,7 @@ class CDB
                 out._bSuccess = false;
                 out._err = mysql_error(_connection);
             }
+            free(Querybuffer);
             return out; // INSERT/UPDATE면 정상적으로 res==nullptr
         }
         free(Querybuffer);
