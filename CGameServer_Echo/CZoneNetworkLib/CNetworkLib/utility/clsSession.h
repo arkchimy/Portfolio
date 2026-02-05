@@ -82,12 +82,13 @@ class ZoneSet
         q.Push(sessionID);
     }
     IZone *GetZone() { return m_zone; }
+    short GetCurrentSessionCount() { return sessionCount; }
+
   private:
     void ZoneThread();
     void ZoneTimerThread();
 
     void ReleaseSession(clsSession& session);
-
   private:
     IZone *m_zone;
     WinThread m_Thread;
@@ -97,7 +98,7 @@ class ZoneSet
     CLockFreeQueue<ull> q;
     //해당 Zone에 존재하는 session들.
     std::list<clsSession *> sessions;
-
+    short sessionCount = 0;
   public:
     //Zone마다의 On 여부
     bool _bOn ; 

@@ -32,15 +32,22 @@ class CZoneServer : public CLanServer
 
     virtual ~CZoneServer()
     {
-        // TODO : ZoneSet가 들고있는 Zone에 대한 할당해제는 ZoneSet이 해줌
-        //        
-        std::lock_guard<SharedMutex> lock(_zoneMutex);
-        for (std::pair<const ZoneKeyType, ZoneSet *> &element : _zoneMap)
-        {
-            delete element.second;
-        }
-        
+        //TODO : Zone에 대한 해제.
+
     }
+    using CreateZone = void (CZoneServer::*)(); // thiscall 함수인데 이런식으로 하는게 맞아?
+    virtual void Foo() {};
+    void RegistCreateZoneFunction(ZoneKeyType key, CreateZone function) 
+    {
+        if (CreateFunctionMap.find(key) == CreateFunctionMap.end())
+        {
+            CreateFunctionMap.insert({key, function});
+        }
+    }
+    std::map<ZoneKeyType,CreateZone> CreateFunctionMap;
+
+  private:
+  
   private:
       //  사실  session을 직접받는것이 성능이 좋으나
       // networklib를 최소한으로 건드려서 그대로 복붙희망.
@@ -55,7 +62,8 @@ class CZoneServer : public CLanServer
     template <typename T>
     void RegisterZone(const wchar_t *ThreadName, int deltaTime, ZoneKeyType key);
 
-    void RequeseMoveZone(ull SessionID, ZoneKeyType targetZone,void* pPlayer);
+    // 이동 전에 자신이 어느 존에 있엇는지 UserCnt를 위해 필요함
+    void RequeseMoveZone(ull SessionID, ZoneKeyType targetZone, ZoneKeyType lastZone, void *pPlayer);
 
 
     protected:
@@ -68,11 +76,13 @@ class CZoneServer : public CLanServer
     ull _RecvTotalCnt = 0;
 
   public:
+    // Contents 별로 관리를 해야 함.
+    // key : ContentID ,  std::vector<ZoneSet*>
+    
+    std::map<ZoneKeyType, std::vector<ZoneSet *>> _zoneKeyMap;
+    short _EchoMaxUser = 1000;
 
-    //  동기화 객체의 필요성 : 여러쓰레드에서 Regist하면
-    // _zoneMap의 iterator가 틀어질 수도있음.
-    SharedMutex _zoneMutex;
-    std::map<ZoneKeyType, ZoneSet *> _zoneMap;
+
     short _EchoThreadCnt = 0;
         // DB연동서버
     enum
@@ -95,6 +105,8 @@ inline void CZoneServer::RegisterLoginZone(const wchar_t *ThreadName, int deltaT
     // ContentsLogic의 경우는 프레임이 존재하므로 겸사겸사 하트비트가능.
     // LoginLogic의 경우 프레임으로 돌 이유가 없음. 이벤트가 필요.
 
+    RT_ASSERT(_LoginZone != nullptr);
+
     if (InterlockedCompareExchange(&_bLoginZoneChk, 1, 0) != 0)
     {
         // LoginZone 2개 이상 등록한 경우
@@ -105,18 +117,7 @@ inline void CZoneServer::RegisterLoginZone(const wchar_t *ThreadName, int deltaT
 
     T *LoginZone = new T();
     _hLoginEvent = CreateEvent(nullptr, 0, 0, nullptr);
-
     _LoginZone = new ZoneSet(LoginZone, ThreadName, deltaTime, this , _hLoginEvent);
-
-    {
-        std::lock_guard<SharedMutex> lock(_zoneMutex);
-        if (_zoneMap.find(key) != _zoneMap.end())
-        {
-            // zone 의 중복 등록  무시할 수도있지만, 수정하도록 유도
-            __debugbreak();
-        }
-        _zoneMap.insert({key, _LoginZone});
-    }
 }
 
 template <typename T>
@@ -131,14 +132,13 @@ inline void CZoneServer::RegisterZone(const wchar_t *ThreadName, int deltaTime, 
     ZoneSet *zoneSet = new ZoneSet(newZone, ThreadName,  deltaTime,this);
     // 해당 Server가 관리하는 zoneSet목록
 
+
+    // RegisterZone은 LoginZone에서만 호출하도록 유도하자.
+    auto iter = _zoneKeyMap.find(key);
+    if (iter == _zoneKeyMap.end())
     {
-        std::lock_guard<SharedMutex> lock(_zoneMutex);
-        if (_zoneMap.find(key) != _zoneMap.end())
-        {
-            // zone 의 중복 등록  무시할 수도있지만, 수정하도록 유도
-            __debugbreak();
-        }
-        _zoneMap.insert({key, zoneSet});
+        _zoneKeyMap.insert({key});
     }
+    _zoneKeyMap[key].emplace_back(zoneSet);
 
 }

@@ -26,6 +26,7 @@ void ZoneSet::ZoneThread()
     DWORD TargetTime = currentTime;
     CMessage *msg;
     ull SessionId;
+    bool bChkSum;
     timeBeginPeriod(1);
     while (_bOn == true)
     {
@@ -47,7 +48,7 @@ void ZoneSet::ZoneThread()
         }
         for (clsSession *session : sessions)
         {
-            bool bChkSum = true;
+            bChkSum = true;
             while (session->m_ZoneBuffer.Pop(msg))
             {
                 if (_server->GetisEncode())
@@ -82,8 +83,6 @@ void ZoneSet::ZoneThread()
                 targetZone = session->m_zoneSet;
 
                 m_zone->OnDisConnect(SessionID);
-
-                // ReleaseSession(*session);
                 iter = sessions.erase(iter);
 
                 targetZone->Push(SessionID);
@@ -98,7 +97,6 @@ void ZoneSet::ZoneThread()
                     ull SessionID;
                     ZoneSet *targetZone;
      
-
                     SessionID = session->m_SeqID;
                     targetZone = session->m_zoneSet;
 

@@ -8,11 +8,7 @@ using ZoneKeyType = uint8_t;
     enum class enZoneType : ZoneKeyType
     {
         LoginZone = 0,
-        EchoZone1,
-        EchoZone2,
-        EchoZone3,
-        EchoZone4,
-        EchoZone5,
+        EchoZone,
     };
     struct stPlayer
     {
