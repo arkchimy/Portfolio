@@ -71,7 +71,7 @@ class CZoneServer : public CLanServer
     
     std::map<ZoneKeyType, std::vector<ZoneSet *>> _zoneKeyMap;
 
-    short _EchoMaxUser = 1000;
+    LONG64 _EchoMaxUser = 750;
 
         // DB연동서버
     enum
@@ -128,5 +128,4 @@ inline void CZoneServer::RegisterZone(const wchar_t *ThreadName, int deltaTime, 
         _zoneKeyMap[key];
     }
     _zoneKeyMap[key].emplace_back(zoneSet);
-
 }

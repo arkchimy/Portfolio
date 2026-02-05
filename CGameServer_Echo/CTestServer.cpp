@@ -58,6 +58,10 @@ void CTestServer::MonitorThread()
 
 
     
+    std::vector<ull> current_GameServer_EchomsgCnt;
+    current_GameServer_EchomsgCnt.reserve(100);
+    std::vector<ull> old_GameServer_EchomsgCnt;
+    old_GameServer_EchomsgCnt.reserve(100);
 
     timeBeginPeriod(1);
 
@@ -192,15 +196,21 @@ void CTestServer::MonitorThread()
             current_GameServer_msgTypeCntArr[1] = 0;
             current_GameContents_msgTypeCntArr[0] = 0;
             current_GameContents_msgTypeCntArr[1] = 0;
-            //for (int i = 0; i < _EchoThreadCnt; i++)
-            //{
-            //    current_EchoThreadFrameCnt += pArrEchoZone[i]->_UpdateFrame;
-            //    current_GameServer_msgTypeCntArr[1] += pArrEchoZone[i]->_msgTypeCntArr[0];
 
-            //    current_GameServer_EchomsgCnt[i] = pArrEchoZone[i]->_msgTypeCntArr[1];
-            //    current_GameContents_msgTypeCntArr[0] += current_GameServer_EchomsgCnt[i];   // 에코라 Recv,Send 동일
-            //    current_GameContents_msgTypeCntArr[1] += pArrEchoZone[i]->_msgTypeCntArr[2]; // 하트비트
-            //}
+            auto& EchoVec = _zoneKeyMap[(ZoneKeyType)enZoneType::EchoZone];
+
+            for (int i = 0; i < EchoVec.size(); i++)
+            {
+
+                clsEchoZone *zone = static_cast<clsEchoZone*>(EchoVec[i]->GetZone());
+
+                current_EchoThreadFrameCnt += zone->_UpdateFrame;
+                current_GameServer_msgTypeCntArr[1] += zone->_msgTypeCntArr[0];
+
+                current_GameServer_EchomsgCnt[i] = zone->_msgTypeCntArr[1];
+                current_GameContents_msgTypeCntArr[0] += current_GameServer_EchomsgCnt[i];   // 에코라 Recv,Send 동일
+                current_GameContents_msgTypeCntArr[1] += zone->_msgTypeCntArr[2];          // 하트비트
+            }
             
 
 
@@ -261,7 +271,7 @@ void CTestServer::MonitorThread()
             printf(" %100s \n", ProfilerFormat[Profiler::bOn]);
 
             printf(" ============================================ Contents Thread TPS ========================================== \n");
-            printf(" EchoZone ThreadCnt :  %zu ", _zoneKeyMap[1].size());
+            printf(" EchoZone ThreadCnt :  %zu \n", _zoneKeyMap[1].size());
             printf(" Accept TPS           : %lld\n", AcceptTps);
             printf(" Recv TPS           : %lld\n",   RecvTps);
             printf(" Send TPS           : %lld\n", EchoTps + ResLoginTps + HeartTps);

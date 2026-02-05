@@ -113,7 +113,7 @@ void CZoneServer::RequeseMoveZone(ull SessionID, ZoneKeyType targetZone, void *p
 
     clsSession &session = sessions_vec[SessionID >> 47];
     int targetIdx;
-    short userMin;
+    LONG64 userMin;
 
     // 매우 치명적인 상황.
     if (SessionID != session.m_SeqID)
@@ -129,33 +129,34 @@ void CZoneServer::RequeseMoveZone(ull SessionID, ZoneKeyType targetZone, void *p
     else if (targetZone == 1)
     {
         userMin = _EchoMaxUser;
-    }
-
-    {
-        auto iter = _zoneKeyMap.find(targetZone);
-        if (iter == _zoneKeyMap.end())
         {
-            //_zoneMap 에 등록이 되지않은 상황. 말이 안 됨.
-            __debugbreak();
-        }
-        // 여기부터는 LoginZone만 접근. Lock없어도 됨.
-        std::vector<ZoneSet *>& vec = iter->second;
-        targetIdx = 0;
-
-        for (int i = 0; i < vec.size(); i++)
-        {
-            short currentCount = vec[i]->GetCurrentSessionCount();
-            if (userMin > currentCount)
+            auto iter = _zoneKeyMap.find(targetZone);
+            if (iter == _zoneKeyMap.end())
             {
-                userMin = currentCount;
-                targetIdx = i;
+                //_zoneMap 에 등록이 되지않은 상황. 말이 안 됨.
+                __debugbreak();
             }
-        }
-        session.m_zoneSet = vec[targetIdx];
-        //동적으로 생성.
-        if (userMin >= _EchoMaxUser)
-        {
-            ReQuestCreateZone(targetZone);
+            // 여기부터는 LoginZone만 접근. Lock없어도 됨.
+            std::vector<ZoneSet *> &vec = iter->second;
+            targetIdx = 0;
+
+            for (int i = 0; i < vec.size(); i++)
+            {
+                LONG64 currentCount = vec[i]->sessionCount;
+                if (userMin > currentCount)
+                {
+                    userMin = currentCount;
+                    targetIdx = i;
+                }
+            }
+            session.m_zoneSet = vec[targetIdx];
+            userMin = InterlockedIncrement64(&vec[targetIdx]->sessionCount);
+            
+            // 동적으로 생성.
+            if (userMin >= _EchoMaxUser)
+            {
+                ReQuestCreateZone(targetZone);
+            }
         }
     }
 }
