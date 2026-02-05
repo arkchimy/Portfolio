@@ -40,7 +40,7 @@ void CTestServer::MonitorThread()
     ull current_RecvCnt; //이전 프레임에서 OnRecv를 한 카운트.
 
 
-    ull AcceptTps;
+    ull currentAcceptTps;
     ull RecvTps;
 
     ull LoginTps;
@@ -218,7 +218,7 @@ void CTestServer::MonitorThread()
             
             // 계산 영역
             {
-                AcceptTps = current_Accept - old_Accept;
+                currentAcceptTps = current_Accept - old_Accept;
                 RecvTps = current_RecvCnt - old_RecvCnt;
 
                 LoginTps = current_GameServer_msgTypeCntArr[0] - old_GameServer_msgTypeCntArr[0];
@@ -272,7 +272,7 @@ void CTestServer::MonitorThread()
 
             printf(" ============================================ Contents Thread TPS ========================================== \n");
             printf(" EchoZone ThreadCnt :  %zu \n", _zoneKeyMap[1].size());
-            printf(" Accept TPS           : %lld\n", AcceptTps);
+            printf(" Accept TPS           : %lld\n", currentAcceptTps);
             printf(" Recv TPS           : %lld\n",   RecvTps);
             printf(" Send TPS           : %lld\n", EchoTps + ResLoginTps + HeartTps);
 
@@ -394,7 +394,7 @@ void CTestServer::MonitorThread()
                 g_MonitorData[enMonitorType::Memory] = (int)(Process_PrivateByteVal.largeValue / 1024 / 1024);
                 g_MonitorData[enMonitorType::SessionCnt] = (int)GetSessionCount();
                 g_MonitorData[enMonitorType::UserCnt] = (int)UserCnt;
-                g_MonitorData[enMonitorType::AcceptTPS] = (int)AcceptTPS;
+                g_MonitorData[enMonitorType::AcceptTPS] = (int)currentAcceptTps;
                 g_MonitorData[enMonitorType::RecvTPS] = (int)RecvTps;
                 g_MonitorData[enMonitorType::SendTPS] = (int)TotalTPS;
                 g_MonitorData[enMonitorType::DB_WRITE_TPS] = (int)0;
