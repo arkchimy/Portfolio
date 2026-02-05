@@ -25,7 +25,7 @@ void ZoneSet::ZoneThread()
     DWORD currentTime = timeGetTime();
     DWORD TargetTime = currentTime;
     CMessage *msg;
-
+    ull SessionId;
     timeBeginPeriod(1);
     while (_bOn == true)
     {
@@ -33,10 +33,8 @@ void ZoneSet::ZoneThread()
         TargetTime += _deltaTime;
 
         // Zone자체의 Q에서 빼기.
-        while (q.Pop(msg))
+        while (q.Pop(SessionId))
         {
-            ull SessionId = msg->ownerID;
-            stTlsObjectPool<CMessage>::Release(msg);
             clsSession *session = _server->GetSession(SessionId);
 
             // session에 남아있는 msg 처분.
@@ -49,8 +47,24 @@ void ZoneSet::ZoneThread()
         }
         for (clsSession *session : sessions)
         {
+            bool bChkSum = true;
             while (session->m_ZoneBuffer.Pop(msg))
             {
+                if (_server->GetisEncode())
+                {
+                    {
+                        Profiler profile(L"DeCoding");
+                        bChkSum = msg->DeCoding();
+                    }
+                    if (bChkSum == false)
+                    {
+                        // Attack : 조작된 패킷으로 checkSum이 다름.
+                        session->m_blive =  0;
+                        stTlsObjectPool<CMessage>::Release(msg);
+                        return;
+                    }
+                }
+                msg->_frontPtr = msg->_frontPtr + _server->GetheaderSize();
                 m_zone->OnRecv(session->m_SeqID, msg);
             }
         }
@@ -72,10 +86,7 @@ void ZoneSet::ZoneThread()
                 // ReleaseSession(*session);
                 iter = sessions.erase(iter);
 
-                msg = (CMessage *)stTlsObjectPool<CMessage>::Alloc();
-
-                msg->ownerID = SessionID;
-                targetZone->Push(msg);
+                targetZone->Push(SessionID);
                 continue;
             }
             else if (session->m_zoneSet != this)
@@ -86,18 +97,14 @@ void ZoneSet::ZoneThread()
                     // DB 처리가 끝났다면
                     ull SessionID;
                     ZoneSet *targetZone;
-                    CMessage *msg;
+     
 
                     SessionID = session->m_SeqID;
                     targetZone = session->m_zoneSet;
 
                     iter = sessions.erase(iter);
                     m_zone->OnLeaveWorld(SessionID);
-
-                    msg = (CMessage *)stTlsObjectPool<CMessage>::Alloc();
-
-                    msg->ownerID = SessionID;
-                    targetZone->Push(msg);
+                    targetZone->Push(SessionID);
 
                     continue;
                 }
@@ -127,11 +134,9 @@ void ZoneSet::ZoneTimerThread()
     {
         WaitForSingleObject(_hEvent, _deltaTime);
         // Zone자체의 Q에서 빼기.
-        while (q.Pop(msg))
+        ull SessionId;
+        while (q.Pop(SessionId))
         {
-            ull SessionId = msg->ownerID;
-            stTlsObjectPool<CMessage>::Release(msg);
-
             clsSession *session = _server->GetSession(SessionId);
             // 다른 Zone에서 LoginZone으로 돌아온경우 폐기
             if (session->pPlayer != nullptr)
@@ -147,8 +152,24 @@ void ZoneSet::ZoneTimerThread()
         }
         for (clsSession *session : sessions)
         {
+            bool bChkSum = true;
             while (session->m_ZoneBuffer.Pop(msg))
             {
+                if (_server->GetisEncode())
+                {
+                    {
+                        Profiler profile(L"DeCoding");
+                        bChkSum = msg->DeCoding();
+                    }
+                    if (bChkSum == false)
+                    {
+                        // Attack : 조작된 패킷으로 checkSum이 다름.
+                        session->m_blive = 0;
+                        stTlsObjectPool<CMessage>::Release(msg);
+                        return;
+                    }
+                }
+                msg->_frontPtr = msg->_frontPtr + _server->GetheaderSize();
                 m_zone->OnRecv(session->m_SeqID, msg);
 
             }
@@ -171,7 +192,6 @@ void ZoneSet::ZoneTimerThread()
                     // DB 처리가 끝났다면
                     ull SessionID;
                     ZoneSet *targetZone;
-                    CMessage *msg;
 
                     SessionID = session->m_SeqID;
                     targetZone = session->m_zoneSet;
@@ -179,10 +199,7 @@ void ZoneSet::ZoneTimerThread()
                     iter = sessions.erase(iter);
                     m_zone->OnLeaveWorld(SessionID);
 
-                    msg = (CMessage *)stTlsObjectPool<CMessage>::Alloc();
-
-                    msg->ownerID = SessionID;
-                    targetZone->Push(msg);
+                    targetZone->Push(SessionID);
 
                     continue;
                 }

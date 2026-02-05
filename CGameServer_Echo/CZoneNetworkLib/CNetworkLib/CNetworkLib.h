@@ -105,7 +105,9 @@ class CLanServer : public Stub, public Proxy
 
     void WSASendError(const DWORD LastError, const ull SessionID);
     void WSARecvError(const DWORD LastError, const ull SessionID);
+
     void ReleaseSession(ull SessionID);
+    void ReleasePost(ull SessionID);
 
     void PushSessionStack(ull SessionID);
 
@@ -149,4 +151,10 @@ class CLanServer : public Stub, public Proxy
 
     bool bEnCording = false;
     int headerSize = 0;
+
+    // 보안 변수
+    // SendBuffer가 가득차는 역할.
+    int SendBufferLimit = 5000;
+    // 메세지 하나의 최대크기 제한.
+    int max_MsgLen = 5000;
 };

@@ -605,7 +605,7 @@ void CTestServer::OnRelease(ull SessionID)
             player = iter->second;
 
             SessionID_hash.erase(SessionID);
-            if (player->m_type == enClientType::ChatServer || player->m_type == enClientType::LoginServer)
+            if (player->m_type == enClientType::ChatServer || player->m_type == enClientType::LoginServer || player->m_type == enClientType::GameServer)
             {
                 std::lock_guard<SharedMutex> ServerNohashLock(ServerNo_hash_Lock);
                 auto iter = ServerNo_hash.find(player->m_ServerNo);

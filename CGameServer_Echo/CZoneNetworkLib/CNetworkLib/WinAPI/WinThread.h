@@ -10,13 +10,15 @@ extern thread_local stTlsLockInfo tls_LockInfo;
 class WinThread
 {
   public:
-    WinThread& operator=(const WinThread &) = delete;
-    WinThread(const WinThread &) = delete;
+    // _hThread가 복사되는 경우를 방지.
+    WinThread& operator=(const WinThread &) = delete; 
+    WinThread(const WinThread &) = delete;            
 
     WinThread(WinThread&& other) noexcept
     {
         if (this == &other)
             return ;
+        // 이렇게 ownerShip을 전달해줘야함.
         _hThread = other._hThread;
         other._hThread = INVALID_HANDLE_VALUE;
     }
@@ -25,6 +27,7 @@ class WinThread
         if (this == &other)
             return *this;
 
+        // 이렇게 ownerShip을 전달해줘야함.
         if (_hThread != INVALID_HANDLE_VALUE)
             __debugbreak();// this가 갖고있던 값이 있었음. 
 
@@ -32,6 +35,7 @@ class WinThread
         other._hThread = INVALID_HANDLE_VALUE;
         return *this;
     }
+    //__beginthreadex에서 호출할 함수 포인터.
     template <typename T>
     static unsigned StartRoutine(void *arg);
 
@@ -46,7 +50,8 @@ class WinThread
             return;
         __debugbreak(); //Join 안 함.
     }
-    void join()  ;
+    // Thread가 끝나기전 Handle반환 방지
+    void join();
     HANDLE native_handle() const { return _hThread; }
 
   private:

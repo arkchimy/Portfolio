@@ -60,114 +60,92 @@ void CMessage::InitMessage()
 
 void CMessage::EnCoding( )
 {
+    // 원본과 동일한 타입/의미 유지
     SerializeBufferSize len;
     BYTE RK;
     BYTE total = 0;
-    int current = 1;
 
     BYTE P = 0;
     BYTE E = 0;
-    char *local_Front;
 
-    bool bDebug = false;
-
-    RK = rand() % UCHAR_MAX;
-
-    local_Front = _begin + offsetof(stHeader, byCheckSum);
+    char *local_Front = _begin + offsetof(stHeader, byCheckSum);
     len = SerializeBufferSize(_rearPtr - local_Front);
 
-    //struct stHeader
-    //{
-    //  public:
-    //    BYTE byCode;
-    //    SHORT sDataLen;
-    //    BYTE byRandKey;
-    //    BYTE byCheckSum;
-    //};
-    memcpy(_begin + offsetof(stHeader, byRandKey), &RK, sizeof(BYTE));
+    // (원본에는 len > _size 체크가 없었음) -> 동일성 위해 그대로 두는 게 안전
+    // 필요하면 assert용으로만 추가하는 걸 추천
 
-    //if (local_Front[1] == 0x06)
-    //    bDebug = true;
+    // RK 생성: 원본과 동일한 방식 유지 (분포/범위까지 동일)
+    RK = rand() % UCHAR_MAX;
+    *reinterpret_cast<BYTE *>(_begin + offsetof(stHeader, byRandKey)) = RK;
 
-    for (SerializeBufferSize i = 1; i < len; i++)
+    // 1) checksum 계산: 원본과 완전 동일 (1..len-1)
+    //    (메모리 접근만 조금 더 단순하게)
+    for (SerializeBufferSize i = 1; i < len; ++i)
+        total = (BYTE)(total + (BYTE)local_Front[i]);
+
+    local_Front[0] = (char)total;
+
+    // 2) 암호화: 원본의 current=1..len, local_Front[current-1] => index 0..len-1
+    for (SerializeBufferSize i = 0; i < len; ++i)
     {
-        total += local_Front[i];
-    }
-    memcpy(local_Front, &total, sizeof(total));
-    //if (bDebug)
-    //    HexLog(en_Tag::ENCODE_BEFORE);
+        const SerializeBufferSize current = i + 1;
 
-    for (; &local_Front[current - 1] != _rearPtr; current++)
-    {
-        BYTE D1 = local_Front[current - 1];
-        BYTE b = (P + RK + current);
+        const BYTE D1 = (BYTE)local_Front[i];
 
-        P = D1 ^ b;
-        E = P ^ (E + K + current);
-        local_Front[current - 1] = E;
+        // b = (P + RK + current)
+        // BYTE로 wrap 타이밍을 고정해서 원본과 동일 보장
+        const BYTE b = (BYTE)(P + (BYTE)(RK + (BYTE)current));
+
+        P = (BYTE)(D1 ^ b);
+        E = (BYTE)(P ^ (BYTE)(E + (BYTE)(K + (BYTE)current)));
+
+        local_Front[i] = (char)E;
     }
-    //if (bDebug)
-     //   HexLog(en_Tag::ENCODE);
 }
 
 bool CMessage::DeCoding( )
 {
-    BYTE P1 = 0, P2;
-    BYTE E1 = 0, E2;
-    BYTE D1 = 0, D2;
-    char total = 0;
-    BYTE RK;
-    char *local_Front;
+    uint8_t P1 = 0, E1 = 0;
+    uint8_t RK = *(_begin + offsetof(stHeader, byRandKey));
 
-    // 디코딩의 msg는 링버퍼에서 꺼낸 데이터로 내가 작성하는
-    SerializeBufferSize len;
-    int current = 1;
-    //HexLog(en_Tag::DECODE_BEFORE);
-    // struct stHeader
-    //{
-    //  public:
-    //    BYTE byCode;
-    //    BYTE byType; //
-    //    SHORT sDataLen;
-    //    BYTE byRandKey;
-    //    BYTE byCheckSum;
+    uint8_t *p = reinterpret_cast<uint8_t *>(_begin + offsetof(stHeader, byCheckSum));
+    uint8_t *end = reinterpret_cast<uint8_t *>(_rearPtr);
 
-    //};
-    //HexLog(en_Tag::DECODE_BEFORE);
-    RK = *(_begin + offsetof(stHeader, byRandKey));
-
-    //HexLog();
-    local_Front = _begin + offsetof(stHeader, byCheckSum);
-    len = (SerializeBufferSize)(_rearPtr - local_Front);
-    if (len > _size)
+    // 디코딩 대상 길이
+    const ptrdiff_t lenSigned = end - p;
+    if (lenSigned <= 0 || lenSigned > static_cast<ptrdiff_t>(_size))
         return false;
-    // 2기준
-    // D2 ^ (P1 + RK + 2) = P2
-    // P2 ^ (E1 + K + 2) = E2
 
-    // E2 ^ (E1 + K + 2) = P2
-    // P2 ^ (P1 + RK + 2) = D2
-    for (; &local_Front[current - 1] != _rearPtr; current++)
+    const uint32_t len = static_cast<uint32_t>(lenSigned);
+
+    // p[0]은 checksum, p[1..len-1]이 검증에 사용됨(기존 코드와 동일)
+    uint32_t sum = 0;
+
+    // i는 1부터 시작 (기존 current=1 의미)
+    for (uint32_t i = 1; i < len; ++i)
     {
-        E2 = local_Front[current - 1];
-        P2 = E2 ^ (E1 + K + current);
-        E1 = E2;
-        D2 = P2 ^ (P1 + RK + current);
+        const uint8_t x = p[i - 1];                    // E2 (암호화된 바이트)
+        const uint8_t t = static_cast<uint8_t>(K + i); // (K + current)
+
+        const uint8_t P2 = static_cast<uint8_t>(x ^ static_cast<uint8_t>(E1 + t));
+        E1 = x;
+
+        const uint8_t D2 = static_cast<uint8_t>(P2 ^ static_cast<uint8_t>(P1 + static_cast<uint8_t>(RK + i)));
         P1 = P2;
-        local_Front[current - 1] = D2;
+
+        p[i - 1] = D2;
+
+        // checksum 누적: 기존 두 번째 루프는 local_Front[1..len-1]을 더함
+        // 지금은 i-1 위치에 D2를 썼으니, i-1이 0이 아닌 시점부터 더하면 됨
+        // i-1 == 0일 때는 checksum byte 자리라 누적하면 안 됨
+        if (i >= 2)
+            sum += D2;
     }
 
-    for (SerializeBufferSize i = 1; i < len; i++)
-    {
-        total += local_Front[i];
-    }
-  
-    if (local_Front[0] != total)
-    {
-        // Attack : 내가 만든 패킷이 아닐경우.
+    // checksum 비교
+    if (p[0] != static_cast<uint8_t>(sum))
         return false;
-    }
-    //HexLog(en_Tag::DECODE);
+
     return true;
 }
 

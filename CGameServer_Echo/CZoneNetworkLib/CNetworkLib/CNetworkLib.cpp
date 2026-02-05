@@ -271,6 +271,13 @@ CLanServer::CLanServer(bool EnCoding)
         CSystemLog::GetInstance()->Log(L"Socket_Error.txt", en_LOG_LEVEL::ERROR_Mode, L"listen_sock Create Socket Error %d", GetLastError());
         __debugbreak();
     }
+    Parser parser;
+    {
+        if (parser.LoadFile(L"Config.txt") == false)
+            CSystemLog::GetInstance()->Log(L"ParserError.txt", en_LOG_LEVEL::ERROR_Mode, L"LoadFileError %d", GetLastError());
+        parser.GetValue(L"SendBufferLimit", SendBufferLimit);
+        parser.GetValue(L"max_MsgLen", max_MsgLen);
+    }
 }
 CLanServer::~CLanServer()
 {
@@ -421,7 +428,7 @@ bool CLanServer::Disconnect(const ull SessionID)
     Local_ioCount = InterlockedDecrement(&session.m_ioCount);
     // 앞으로 Session 초기화는 IoCount를 '0'으로 하면 안된다.
     if (InterlockedCompareExchange(&session.m_ioCount, (ull)1 << 47, 0) == 0)
-        ReleaseSession(SessionID);
+        ReleasePost(SessionID);
     return true;
 }
 
@@ -453,6 +460,7 @@ void CLanServer::RecvComplete(clsSession &session, DWORD transferred)
 
     ull SessionID;
     bool bChkSum = false;
+    short msgCount = 0;
     {
         session.m_recvBuffer.MoveRear(transferred);
         SessionID = session.m_SeqID;
@@ -460,6 +468,24 @@ void CLanServer::RecvComplete(clsSession &session, DWORD transferred)
     // Header의 크기만큼을 확인.
     while (session.m_recvBuffer.Peek(&header, headerSize) == headerSize)
     {
+        msgCount++;
+        // OverSend를 150개 이상하였다면 끊기.
+        if (msgCount >= 500)
+        {
+            Disconnect(session.m_SeqID);
+            CSystemLog::GetInstance()->Log(L"Attack", en_LOG_LEVEL::ERROR_Mode,
+                                           L"%-20s ",
+                                           L" OverSend Count ");
+            return;
+        }
+        // sDataLen 을 크게 작성하여 공격하는 경우.
+        // 하나의 메세지
+        if (header.sDataLen >= max_MsgLen)
+        {
+            Disconnect(session.m_SeqID);
+            return;
+        }
+
         useSize = session.m_recvBuffer.GetUseSize();
         if (useSize < header.sDataLen + headerSize)
         {
@@ -470,35 +496,7 @@ void CLanServer::RecvComplete(clsSession &session, DWORD transferred)
         CMessage *msg = CreateMessage(session, header);
         if (msg == nullptr)
             break;
-        if (bEnCording)
-        {
-            {
-                Profiler profile(L"DeCoding");
-                bChkSum = msg->DeCoding();
-            }
-            if (bChkSum == false)
-            {
-                // Attack : 조작된 패킷으로 checkSum이 다름.
-                InterlockedExchange(&session.m_blive, 0);
-                CancelIoEx((HANDLE)session.m_sock, &session.m_sendOverlapped);
-                static bool bOn = false;
-                if (bOn == false)
-                {
-                    bOn = true;
-                    CSystemLog::GetInstance()->Log(L"Attack", en_LOG_LEVEL::ERROR_Mode,
-                                                   L"%-20s ",
-                                                   L" false Packet CheckSum Not Equle ");
-                }
-                stTlsObjectPool<CMessage>::Release(msg);
-                return;
-                
-            }
-        }
-
-        InterlockedExchange(&msg->ownerID, SessionID);
-
-        msg->_frontPtr = msg->_frontPtr + headerSize;
-
+ 
         // PayLoad를 읽고 무엇인가 처리하는 Logic이 NetWork에 들어가선 안된다.
         {
             Profiler profile(L"OnRecv");
@@ -515,7 +513,6 @@ void CLanServer::DecrementIoCountAndMaybeDeleteSession(clsSession &session)
     local_IoCount = InterlockedDecrement(&session.m_ioCount);
     if (local_IoCount == 0)
     {
-
         if (InterlockedCompareExchange(&session.m_ioCount, (ull)1 << 47, 0) != 0)
             return;
         ReleaseSession(session.m_SeqID);
@@ -576,27 +573,22 @@ void CLanServer::SendComplete(clsSession &session, DWORD transferred)
 
     if (useSize == 0)
     {
-        useSize = (ringBufferSize)session.m_sendBuffer.m_size;
-        // flag 끄기
         if (_InterlockedCompareExchange(&session.m_flag, 0, 1) == 1)
         {
             useSize = (ringBufferSize)session.m_sendBuffer.m_size;
+            if (useSize == 0)
+                return;
             if (useSize != 0)
             {
                 //// 누군가 진입 했다면 return
-                if (_InterlockedCompareExchange(&session.m_flag, 1, 0) == 0)
+                if (_InterlockedCompareExchange(&session.m_flag, 1, 0) != 0)
                 {
-                    ZeroMemory(&session.m_sendOverlapped, sizeof(OVERLAPPED));
-
-                    InterlockedIncrement(&session.m_ioCount);
-                    PostQueuedCompletionStatus(m_hIOCP, 0, (ULONG_PTR)&session, &session.m_sendOverlapped);
+                    return;
                 }
             }
         }
-
-        return;
     }
-
+    useSize = (ringBufferSize)session.m_sendBuffer.m_size;
     {
         ZeroMemory(wsaBuf, sizeof(wsaBuf));
         ZeroMemory(&session.m_sendOverlapped, sizeof(OVERLAPPED));
@@ -618,6 +610,17 @@ void CLanServer::SendComplete(clsSession &session, DWORD transferred)
             {
                 break;
             }
+        }
+        if (bufCnt == 0)
+        {
+            wsaBuf[0].buf = (char*)&session;
+            wsaBuf[0].len = 0;
+            send_retval = WSASend(session.m_sock, wsaBuf, 1, nullptr, 0, (OVERLAPPED *)&session.m_sendOverlapped, nullptr);
+            LastError = GetLastError();
+
+            if (send_retval < 0)
+                WSASendError(LastError, session.m_SeqID);
+            return;
         }
     }
 
@@ -647,15 +650,7 @@ void CLanServer::SendComplete(clsSession &session, DWORD transferred)
 void CLanServer::ReleaseComplete(clsSession& session)
 {
     // 로직상  Session당 한번만 호출되게 짰음.
-
-    
     OnRelease(session.m_SeqID);
-    //session.Release();
-    //closesocket(session.m_sock);
-
-    //m_SessionIdxStack.Push(session.m_SeqID >> 47);
-    //_interlockeddecrement64(&m_SessionCount);
-    
 }
 bool CLanServer::SessionLock(ull SessionID)
 {
@@ -771,6 +766,14 @@ void CLanServer::Unicast(ull SessionID, CMessage *msg, LONG64 Account)
         PostQueuedCompletionStatus(m_hIOCP, 0, (ULONG_PTR)&session, &session.m_sendOverlapped);
     }
 
+    if (session.m_sendBuffer.m_size >= SendBufferLimit)
+    {
+        Disconnect(SessionID);
+        //CSystemLog::GetInstance()->Log(L"Attack", en_LOG_LEVEL::SYSTEM_Mode,
+        //                               L"%-20s %-10s,%llu",
+        //                               L"UnitCast_sendBuffer.m_size == SendBufferLimit",
+        //                               L"SessionID :", SessionID);
+    }
     SessionUnLock(SessionID);
 }
 void CLanServer::BroadCast(ull SessionID, CMessage *msg, std::vector<ull> *pIDVector, size_t wVecLen)
@@ -803,7 +806,14 @@ void CLanServer::BroadCast(ull SessionID, CMessage *msg, std::vector<ull> *pIDVe
 
             PostQueuedCompletionStatus(m_hIOCP, 0, (ULONG_PTR)&session, &session.m_sendOverlapped);
         }
-        
+        if (session.m_sendBuffer.m_size >= SendBufferLimit)
+        {
+            Disconnect(currentSessionID);
+            //CSystemLog::GetInstance()->Log(L"Attack", en_LOG_LEVEL::SYSTEM_Mode,
+            //                               L"%-20s %-10s,%llu",
+            //                               L"Broad_sendBuffer.m_size == SendBufferLimit",
+            //                               L"SessionID :", currentSessionID);
+        }
         SessionUnLock(currentSessionID);
     }
 
@@ -910,11 +920,11 @@ void CLanServer::WSASendError(const DWORD LastError, const ull SessionID)
 
     default:
 
-        CSystemLog::GetInstance()->Log(L"Socket", en_LOG_LEVEL::ERROR_Mode,
-                                       L"[ %-10s %05d ],%10s %05lld  %10s %012llu  %10s %4llu  %10s %3llu",
-                                       L"Send_UnDefineError", LastError,
-                                       L"HANDLE : ", session.m_sock, L"seqID :", SessionID, L"seqIndx : ", session.m_SeqID >> 47,
-                                       L"IO_Count", session.m_ioCount);
+        //CSystemLog::GetInstance()->Log(L"Socket", en_LOG_LEVEL::ERROR_Mode,
+        //                               L"[ %-10s %05d ],%10s %05lld  %10s %012llu  %10s %4llu  %10s %3llu",
+        //                               L"Send_UnDefineError", LastError,
+        //                               L"HANDLE : ", session.m_sock, L"seqID :", SessionID, L"seqIndx : ", session.m_SeqID >> 47,
+        //                               L"IO_Count", session.m_ioCount);
         session.m_blive = 0;
         local_IoCount = _InterlockedDecrement(&session.m_ioCount);
     }
@@ -944,11 +954,11 @@ void CLanServer::WSARecvError(const DWORD LastError, const ull SessionID)
         break;
 
     default:
-        CSystemLog::GetInstance()->Log(L"Socket", en_LOG_LEVEL::ERROR_Mode,
-                                       L"[ %-10s %05d ] %10s %05lld  %10s %012llu  %10s %4llu  %10s %3llu",
-                                       L"Recv_UnDefineError", LastError,
-                                       L"HANDLE : ", session.m_sock, L"seqID :", SessionID, L"seqIndx : ", session.m_SeqID >> 47,
-                                       L"IO_Count", session.m_ioCount);
+        //CSystemLog::GetInstance()->Log(L"Socket", en_LOG_LEVEL::ERROR_Mode,
+        //                               L"[ %-10s %05d ] %10s %05lld  %10s %012llu  %10s %4llu  %10s %3llu",
+        //                               L"Recv_UnDefineError", LastError,
+        //                               L"HANDLE : ", session.m_sock, L"seqID :", SessionID, L"seqIndx : ", session.m_SeqID >> 47,
+        //                               L"IO_Count", session.m_ioCount);
         session.m_blive = 0;
         local_IoCount = _InterlockedDecrement(&session.m_ioCount);
     }
@@ -957,9 +967,14 @@ void CLanServer::WSARecvError(const DWORD LastError, const ull SessionID)
 void CLanServer::ReleaseSession(ull SessionID)
 {
     clsSession &session = sessions_vec[SessionID >> 47];
-    ZeroMemory(&session.m_releaseOverlapped, sizeof(OVERLAPPED));
-    PostQueuedCompletionStatus(m_hIOCP, 0, (ULONG_PTR) & session, &session.m_releaseOverlapped);
+    OnRelease(session.m_SeqID);
+}
 
+void CLanServer::ReleasePost(ull SessionID)
+{
+    clsSession &session = sessions_vec[SessionID >> 47];
+    ZeroMemory(&session.m_releaseOverlapped, sizeof(OVERLAPPED));
+    PostQueuedCompletionStatus(m_hIOCP, 0, (ULONG_PTR)&session, &session.m_releaseOverlapped);
 }
 
 void CLanServer::PushSessionStack(ull SessionID)

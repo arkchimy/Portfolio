@@ -15,8 +15,17 @@ void CTestServer::MonitorThread()
     // 
     
     clsLoginZone *loginZone = static_cast<clsLoginZone*>( _zoneMap[ZoneKeyType(enZoneType::LoginZone)]->GetZone());
-    clsEchoZone *echoZone = static_cast<clsEchoZone *>(_zoneMap[ZoneKeyType(enZoneType::EchoZone)]->GetZone());
+    std::vector<clsEchoZone *> pArrEchoZone;
+    pArrEchoZone.resize(_EchoThreadCnt);
 
+    for (int i = 0; i < _EchoThreadCnt; i++)
+    {
+        pArrEchoZone[i] = static_cast<clsEchoZone *>(_zoneMap[i + 1]->GetZone());
+    }
+    std::vector<ull> old_GameServer_EchomsgCnt;
+    std::vector<ull> current_GameServer_EchomsgCnt;
+    old_GameServer_EchomsgCnt.resize(_EchoThreadCnt);
+    current_GameServer_EchomsgCnt.resize(_EchoThreadCnt);
 
     ull LoginFPS;
     ull EchoFPS;
@@ -195,15 +204,20 @@ void CTestServer::MonitorThread()
             }
 
             //Echo Thread 정보
+            current_EchoThreadFrameCnt = 0;
+            current_GameServer_msgTypeCntArr[1] = 0;
+            current_GameContents_msgTypeCntArr[0] = 0;
+            current_GameContents_msgTypeCntArr[1] = 0;
+            for (int i = 0; i < _EchoThreadCnt; i++)
             {
-                current_EchoThreadFrameCnt = echoZone->_UpdateFrame;
+                current_EchoThreadFrameCnt += pArrEchoZone[i]->_UpdateFrame;
+                current_GameServer_msgTypeCntArr[1] += pArrEchoZone[i]->_msgTypeCntArr[0];
 
-                current_GameServer_msgTypeCntArr[1] = echoZone->_msgTypeCntArr[0];
-
-                current_GameContents_msgTypeCntArr[0] = echoZone->_msgTypeCntArr[1]; // 에코라 Recv,Send 동일
-                current_GameContents_msgTypeCntArr[1] = echoZone->_msgTypeCntArr[2]; // 하트비트
+                current_GameServer_EchomsgCnt[i] = pArrEchoZone[i]->_msgTypeCntArr[1];
+                current_GameContents_msgTypeCntArr[0] += current_GameServer_EchomsgCnt[i];   // 에코라 Recv,Send 동일
+                current_GameContents_msgTypeCntArr[1] += pArrEchoZone[i]->_msgTypeCntArr[2]; // 하트비트
             }
-  
+            
 
 
 
@@ -232,7 +246,6 @@ void CTestServer::MonitorThread()
                 old_GameContents_msgTypeCntArr[0] = current_GameContents_msgTypeCntArr[0];
                 old_GameContents_msgTypeCntArr[1] = current_GameContents_msgTypeCntArr[1];
 
-
                 // Thread TPS
                 LoginFPS = current_LoginThreadFrameCnt - old_LoginThreadFrameCnt;
                 EchoFPS = current_EchoThreadFrameCnt - old_EchoThreadFrameCnt;
@@ -257,6 +270,8 @@ void CTestServer::MonitorThread()
             printf(" %-25s : %10lld  %-25s : %10lld\n", "PrePlayer Count", AuthCnt,"Player Count", UserCnt);
 
             printf(" %-25s : %10lld\n", "PacketPool", stTlsObjectPool<CMessage>::instance.m_TotalCount);
+            printf(" %-25s : %10lld\n", "s_ActiveNode", stTlsObjectPool<CMessage>::s_ActiveNode);
+
             printf(" %-25s : %10lld\n", "Total iDisconnectCount", iDisCounnectCount);
 
             printf(" %100s \n", ProfilerFormat[Profiler::bOn]);
@@ -266,7 +281,11 @@ void CTestServer::MonitorThread()
             printf(" Accept TPS           : %lld\n", AcceptTps);
             printf(" Recv TPS           : %lld\n",   RecvTps);
             printf(" Send TPS           : %lld\n", EchoTps + ResLoginTps + HeartTps);
-
+            for (int i = 0; i < _EchoThreadCnt; i++)
+            {
+                printf(" EchoZone[%d] :  Send TPS           : %lld\n", i, current_GameServer_EchomsgCnt[i] - old_GameServer_EchomsgCnt[i]);
+                old_GameServer_EchomsgCnt[i] = current_GameServer_EchomsgCnt[i];
+            }
             printf(" ============================================ Contents Thread FPS ========================================== \n");
             printf(" LoginFPS           : %lld\n", LoginFPS);
             printf(" EchoFPS           : %lld\n", EchoFPS);
@@ -283,28 +302,15 @@ void CTestServer::MonitorThread()
                 PdhCollectQueryData(hQuery);
 
                 CPUTime.UpdateCpuTime();
-
-                wprintf(L" ============================================ CPU Useage ============================================ \n");
-
-                wprintf(L" [ Total ]T:%03.2f U : %03.2f  K : %03.2f \t", CPUTime.ProcessorTotal(), CPUTime.ProcessorKernel(), CPUTime.ProcessorUser());
-                wprintf(L" [ Process ] T:%03.2f U : %03.2f  K : %03.2f   \n", CPUTime.ProcessTotal(), CPUTime.ProcessKernel(), CPUTime.ProcessUser());
-                wprintf(L"====================================================================================================\n");
-
                 // 갱신 데이터 얻음
                 // PDH_FMT_COUNTERVALUE counterVal;
 
                 PdhGetFormattedCounterValue(Process_PrivateByte, PDH_FMT_LARGE, NULL, &Process_PrivateByteVal);
-                wprintf(L"Process_PrivateByte : %lld Byte\n", Process_PrivateByteVal.largeValue);
-
                 PdhGetFormattedCounterValue(Process_NonpagedByte, PDH_FMT_LARGE, NULL, &Process_Nonpaged_ByteVal);
-                wprintf(L"Process_Nonpaged_Byte :  %lld Byte\n", Process_Nonpaged_ByteVal.largeValue);
 
                 PdhGetFormattedCounterValue(Available_Byte, PDH_FMT_LARGE, NULL, &Available_Byte_ByteVal);
-                wprintf(L"Available_Byte :  %lld Byte\n", Available_Byte_ByteVal.largeValue);
 
                 PdhGetFormattedCounterValue(Nonpaged_Byte, PDH_FMT_LARGE, NULL, &Nonpaged_Byte_ByteVal);
-                wprintf(L"Nonpaged_Byte_ByteVal : %lld Byte\n", Nonpaged_Byte_ByteVal.largeValue);
-
 
 
             }

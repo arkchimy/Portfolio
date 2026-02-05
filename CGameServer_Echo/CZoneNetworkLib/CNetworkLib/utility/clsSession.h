@@ -77,9 +77,9 @@ class ZoneSet
         m_Thread.join();
         delete m_zone;
     }
-    void Push(CMessage *msg)
+    void Push(ull sessionID)
     {
-        q.Push(msg);
+        q.Push(sessionID);
     }
     IZone *GetZone() { return m_zone; }
   private:
@@ -93,7 +93,8 @@ class ZoneSet
     WinThread m_Thread;
     int _deltaTime;
 
-    CLockFreeQueue<CMessage *> q;
+    //SessionID만 넣기
+    CLockFreeQueue<ull> q;
     //해당 Zone에 존재하는 session들.
     std::list<clsSession *> sessions;
 

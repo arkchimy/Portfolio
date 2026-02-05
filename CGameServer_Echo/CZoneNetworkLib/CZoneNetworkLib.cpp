@@ -59,13 +59,10 @@ bool CZoneServer::OnAccept(ull SessionID, SOCKADDR_IN &addr)
 {
 
     clsSession& session = sessions_vec[SessionID >> 47];
-    CMessage* msg = (CMessage*)stTlsObjectPool<CMessage>::Alloc();
 
     session._addr = addr;
-    msg->ownerID = SessionID;
-
     session.m_zoneSet = _LoginZone;
-    _LoginZone->Push(msg);
+    _LoginZone->Push(SessionID);
 
     SetEvent(_LoginZone->_hEvent);
 

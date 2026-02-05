@@ -59,10 +59,9 @@ void CTestClient::OnEnterJoinServer(ull SessionID)
     // 내가 직접 넣는다고치고 PQCS를 하면 디코드를 하지않을까.
     // 그러면 Decode를 하지않고, 바로 받아보자.
     // 보낼때만 Encode하는 방식
-    int ServerNo = 11;
+    int ServerNo = 41;
     stPlayer *player;
 
-    std::lock_guard<SharedMutex> sessionHashLock(sessiondhash_lock);
     auto iter = sessiondID_Hash.find(SessionID);
     if (iter != sessiondID_Hash.end())
     {
@@ -71,6 +70,8 @@ void CTestClient::OnEnterJoinServer(ull SessionID)
 
     player = (stPlayer *)player_Pool.Alloc();
     player->m_SeqID = SessionID;
+
+    sessiondID_Hash.insert({SessionID, player});
 
     msg->ownerID = SessionID;
 
@@ -97,9 +98,7 @@ void CTestClient::OnLeaveServer()
 
     stPlayer *player;
 
-    std::lock_guard<SharedMutex> sessionHashLock(sessiondhash_lock);
     ull SessionID = session.m_SeqID;
-
     auto iter = sessiondID_Hash.find(SessionID);
     if (iter == sessiondID_Hash.end())
     {

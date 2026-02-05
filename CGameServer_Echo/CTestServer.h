@@ -16,11 +16,17 @@ class CTestServer : public CZoneServer
         : CZoneServer(iEncording)
     {
         // LoginZone은 하나만 등록해야하고.
-        RegisterLoginZone<clsLoginZone>(L"LoginServer", 10000, (ZoneKeyType)enZoneType::LoginZone);
+        RegisterLoginZone<clsLoginZone>(L"LoginServer", 5000, (ZoneKeyType)enZoneType::LoginZone);
 
+        Parser parser;
+        if (parser.LoadFile(L"Config.txt") == false)
+            __debugbreak();
+        parser.GetValue(L"EchoThreadCnt", _EchoThreadCnt);
         // 동일한 방식으로 상속받아 구현한 class를 여기에 등록한다.
-        RegisterZone<clsEchoZone>(L"Echo", 0, (ZoneKeyType)enZoneType::EchoZone);
-
+        for (int i = 1; i <= _EchoThreadCnt; i++)
+        {
+            RegisterZone<clsEchoZone>(L"EchoThread", 20, i);
+        }
         _MonitorThread = WinThread(&CTestServer::MonitorThread, this);
         
     }

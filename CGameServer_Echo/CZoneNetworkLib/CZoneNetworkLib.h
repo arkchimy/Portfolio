@@ -16,7 +16,6 @@
 */
 //Zone을 구분할 유일한 Key값을 저장하는 자료형타입.
 using ZoneKeyType = uint8_t;
-
 enum enZoneMsgType : uint8_t
 {
     EnterZone,
@@ -67,14 +66,14 @@ class CZoneServer : public CLanServer
 
     ull _bLoginZoneChk = false;
     ull _RecvTotalCnt = 0;
-    
+
   public:
 
     //  동기화 객체의 필요성 : 여러쓰레드에서 Regist하면
     // _zoneMap의 iterator가 틀어질 수도있음.
     SharedMutex _zoneMutex;
     std::map<ZoneKeyType, ZoneSet *> _zoneMap;
-
+    short _EchoThreadCnt = 0;
         // DB연동서버
     enum
     {
