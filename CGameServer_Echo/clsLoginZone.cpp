@@ -349,7 +349,7 @@ void clsLoginZone::REQ_LOGIN(ull SessionID, CMessage *msg, INT64 AccountNo, WCHA
             Account_hash.insert({AccountNo, player});
             User_SessionCnt = Account_hash.size();
             
-            _server->RequeseMoveZone(SessionID, (AccountNo % _server->_EchoThreadCnt) + 1, player);
+            _server->RequeseMoveZone(SessionID, (ZoneKeyType)enZoneType::EchoZone, player);
 
         }
     }

@@ -44,10 +44,20 @@ void fnCZoneNetworkLib()
             : CZoneServer(iEncording)
         {
             //LoginZone은 하나만 등록해야하고.
-            RegisterLoginZone<clsLoginZone>(L"LoginServer", 4000, (ZoneKeyType)enZoneType::LoginZone);
+            RegisterLoginZone<clsLoginZone>(L"LoginServer", 4000, (ZoneKeyType)enZoneType::LoginZone,true);
 
             // 동일한 방식으로 상속받아 구현한 class를 여기에 등록한다.
-            RegisterZone<clsContentsZone>(L"Contents이름", 20, (ZoneKeyType)enZoneType::EchoZone);
+            RegisterZone<clsContentsZone>(L"Contents이름", 20, (ZoneKeyType)enZoneType::EchoZone,false);
+        }
+        virtual void ReQuestCreateZone(ZoneKeyType key) override
+        {
+            switch (key)
+            {
+            case (ZoneKeyType)enZoneType::EchoZone:
+                RegisterZone<clsContentsZone>(L"ContentsThread", 20, (ZoneKeyType)enZoneType::EchoZone,false);
+                return;
+            }
+            __debugbreak();
         }
     };
     //  TestServer생성시에 LoginZone을 넘겨주게 설계.
@@ -66,7 +76,8 @@ bool CZoneServer::OnAccept(ull SessionID, SOCKADDR_IN &addr)
     session.m_zoneSet = _LoginZone;
     _LoginZone->Push(SessionID);
 
-    SetEvent(_LoginZone->_hEvent);
+    if (_LoginZone->_bEventUse)
+        SetEvent(_LoginZone->_hEvent);
 
     CSystemLog::GetInstance()->Log(L"Session_Log", en_LOG_LEVEL::DEBUG_Mode, L"OnAccept %20s  : %lld ",
                                    L" SessionID ", SessionID);
@@ -78,6 +89,10 @@ void CZoneServer::OnRecv(ull SessionID, CMessage *msg)
 {
     clsSession &session = sessions_vec[SessionID >> 47];
     session.m_ZoneBuffer.Push(msg);
+    if (session.m_zoneSet->_bEventUse)
+    {
+        SetEvent(session.m_zoneSet->_hEvent);
+    }
     InterlockedIncrement(&_RecvTotalCnt);
 }
 
@@ -90,7 +105,7 @@ void CZoneServer::OnRelease(ull SessionID)
 
 }
 
-void CZoneServer::RequeseMoveZone(ull SessionID, ZoneKeyType targetZone, ZoneKeyType lastZone, void *pPlayer)
+void CZoneServer::RequeseMoveZone(ull SessionID, ZoneKeyType targetZone, void *pPlayer)
 {
     //  이 단계에서 session이 Release될수 있을까?
     // RequeseMoveZone 의 호출은 속해있는 Zone 내부에서 호출한 것.
@@ -136,10 +151,11 @@ void CZoneServer::RequeseMoveZone(ull SessionID, ZoneKeyType targetZone, ZoneKey
                 targetIdx = i;
             }
         }
-        if (userMin == _EchoMaxUser)
+        session.m_zoneSet = vec[targetIdx];
+        //동적으로 생성.
+        if (userMin >= _EchoMaxUser)
         {
-            RegisterZone<class clsEchoZone>(L"EchoThread", 20, (ZoneKeyType)enZoneType::EchoZone);//희망
+            ReQuestCreateZone(targetZone);
         }
-
     }
 }

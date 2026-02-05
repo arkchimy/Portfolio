@@ -14,18 +14,7 @@ void CTestServer::MonitorThread()
     // 
     // 
     
-    clsLoginZone *loginZone = static_cast<clsLoginZone*>( _zoneMap[ZoneKeyType(enZoneType::LoginZone)]->GetZone());
-    std::vector<clsEchoZone *> pArrEchoZone;
-    pArrEchoZone.resize(_EchoThreadCnt);
-
-    for (int i = 0; i < _EchoThreadCnt; i++)
-    {
-        pArrEchoZone[i] = static_cast<clsEchoZone *>(_zoneMap[i + 1]->GetZone());
-    }
-    std::vector<ull> old_GameServer_EchomsgCnt;
-    std::vector<ull> current_GameServer_EchomsgCnt;
-    old_GameServer_EchomsgCnt.resize(_EchoThreadCnt);
-    current_GameServer_EchomsgCnt.resize(_EchoThreadCnt);
+    clsLoginZone *loginZone = static_cast<clsLoginZone*>( _LoginZone->GetZone());
 
     ull LoginFPS;
     ull EchoFPS;
@@ -146,11 +135,6 @@ void CTestServer::MonitorThread()
         PDH_FMT_COUNTERVALUE Available_Byte_ByteVal;
         PDH_FMT_COUNTERVALUE Nonpaged_Byte_ByteVal;
 
-        PDH_FMT_COUNTERVALUE recvVal[3];
-        PDH_FMT_COUNTERVALUE sentVal[3];
-        PDH_FMT_COUNTERVALUE totalVal[3];
-        PDH_FMT_COUNTERVALUE vTcp4Retr, vTcp4Sent, vTcp4Recv;
-
         currentTime = timeGetTime();
         nextTime; // 내가 목표로하는 이상적인 시간.
         nextTime = currentTime;
@@ -208,15 +192,15 @@ void CTestServer::MonitorThread()
             current_GameServer_msgTypeCntArr[1] = 0;
             current_GameContents_msgTypeCntArr[0] = 0;
             current_GameContents_msgTypeCntArr[1] = 0;
-            for (int i = 0; i < _EchoThreadCnt; i++)
-            {
-                current_EchoThreadFrameCnt += pArrEchoZone[i]->_UpdateFrame;
-                current_GameServer_msgTypeCntArr[1] += pArrEchoZone[i]->_msgTypeCntArr[0];
+            //for (int i = 0; i < _EchoThreadCnt; i++)
+            //{
+            //    current_EchoThreadFrameCnt += pArrEchoZone[i]->_UpdateFrame;
+            //    current_GameServer_msgTypeCntArr[1] += pArrEchoZone[i]->_msgTypeCntArr[0];
 
-                current_GameServer_EchomsgCnt[i] = pArrEchoZone[i]->_msgTypeCntArr[1];
-                current_GameContents_msgTypeCntArr[0] += current_GameServer_EchomsgCnt[i];   // 에코라 Recv,Send 동일
-                current_GameContents_msgTypeCntArr[1] += pArrEchoZone[i]->_msgTypeCntArr[2]; // 하트비트
-            }
+            //    current_GameServer_EchomsgCnt[i] = pArrEchoZone[i]->_msgTypeCntArr[1];
+            //    current_GameContents_msgTypeCntArr[0] += current_GameServer_EchomsgCnt[i];   // 에코라 Recv,Send 동일
+            //    current_GameContents_msgTypeCntArr[1] += pArrEchoZone[i]->_msgTypeCntArr[2]; // 하트비트
+            //}
             
 
 
@@ -277,15 +261,11 @@ void CTestServer::MonitorThread()
             printf(" %100s \n", ProfilerFormat[Profiler::bOn]);
 
             printf(" ============================================ Contents Thread TPS ========================================== \n");
-
+            printf(" EchoZone ThreadCnt :  %zu ", _zoneKeyMap[1].size());
             printf(" Accept TPS           : %lld\n", AcceptTps);
             printf(" Recv TPS           : %lld\n",   RecvTps);
             printf(" Send TPS           : %lld\n", EchoTps + ResLoginTps + HeartTps);
-            for (int i = 0; i < _EchoThreadCnt; i++)
-            {
-                printf(" EchoZone[%d] :  Send TPS           : %lld\n", i, current_GameServer_EchomsgCnt[i] - old_GameServer_EchomsgCnt[i]);
-                old_GameServer_EchomsgCnt[i] = current_GameServer_EchomsgCnt[i];
-            }
+
             printf(" ============================================ Contents Thread FPS ========================================== \n");
             printf(" LoginFPS           : %lld\n", LoginFPS);
             printf(" EchoFPS           : %lld\n", EchoFPS);

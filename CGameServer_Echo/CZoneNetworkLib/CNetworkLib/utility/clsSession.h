@@ -70,12 +70,14 @@ class IZone
 class ZoneSet
 {
   public:
-    ZoneSet(IZone *zone, const wchar_t *ThreadName, int deltaTime, CZoneServer *server , HANDLE hEvent = INVALID_HANDLE_VALUE);
+    ZoneSet(IZone *zone, const wchar_t *ThreadName, int deltaTime, CZoneServer *server,bool bEventUse);
 
     ~ZoneSet()
     {
         m_Thread.join();
         delete m_zone;
+        if (_hEvent != INVALID_HANDLE_VALUE)
+            CloseHandle(_hEvent);
     }
     void Push(ull sessionID)
     {
@@ -86,8 +88,6 @@ class ZoneSet
 
   private:
     void ZoneThread();
-    void ZoneTimerThread();
-
     void ReleaseSession(clsSession& session);
   private:
     IZone *m_zone;
@@ -102,6 +102,7 @@ class ZoneSet
   public:
     //Zone마다의 On 여부
     bool _bOn ; 
+    bool _bEventUse;
     HANDLE _hEvent;
 
     //TODO : 좀 더 좋은 방법 없을까.

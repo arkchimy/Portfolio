@@ -35,16 +35,7 @@ class CZoneServer : public CLanServer
         //TODO : Zone에 대한 해제.
 
     }
-    using CreateZone = void (CZoneServer::*)(); // thiscall 함수인데 이런식으로 하는게 맞아?
-    virtual void Foo() {};
-    void RegistCreateZoneFunction(ZoneKeyType key, CreateZone function) 
-    {
-        if (CreateFunctionMap.find(key) == CreateFunctionMap.end())
-        {
-            CreateFunctionMap.insert({key, function});
-        }
-    }
-    std::map<ZoneKeyType,CreateZone> CreateFunctionMap;
+    virtual void ReQuestCreateZone(ZoneKeyType key) = 0;
 
   private:
   
@@ -57,13 +48,12 @@ class CZoneServer : public CLanServer
 
   public:
     template <typename T>
-    void RegisterLoginZone(const wchar_t *ThreadName, int deltaTime, ZoneKeyType key);
+    void RegisterLoginZone(const wchar_t *ThreadName, int deltaTime, ZoneKeyType key, bool bEventUse);
 
     template <typename T>
-    void RegisterZone(const wchar_t *ThreadName, int deltaTime, ZoneKeyType key);
+    void RegisterZone(const wchar_t *ThreadName, int deltaTime, ZoneKeyType key, bool bEventUse);
 
-    // 이동 전에 자신이 어느 존에 있엇는지 UserCnt를 위해 필요함
-    void RequeseMoveZone(ull SessionID, ZoneKeyType targetZone, ZoneKeyType lastZone, void *pPlayer);
+    void RequeseMoveZone(ull SessionID, ZoneKeyType targetZone, void *pPlayer);
 
 
     protected:
@@ -71,7 +61,7 @@ class CZoneServer : public CLanServer
 
     // OnRecv를 통해 해당 이벤트를 SetEvent 시켜야하므로 서버의OnRecv에서 접근할 수 있어야함.
     HANDLE _hLoginEvent = INVALID_HANDLE_VALUE;
-
+    
     ull _bLoginZoneChk = false;
     ull _RecvTotalCnt = 0;
 
@@ -80,10 +70,9 @@ class CZoneServer : public CLanServer
     // key : ContentID ,  std::vector<ZoneSet*>
     
     std::map<ZoneKeyType, std::vector<ZoneSet *>> _zoneKeyMap;
+
     short _EchoMaxUser = 1000;
 
-
-    short _EchoThreadCnt = 0;
         // DB연동서버
     enum
     {
@@ -99,13 +88,13 @@ class CZoneServer : public CLanServer
 };
 
 template <typename T>
-inline void CZoneServer::RegisterLoginZone(const wchar_t *ThreadName, int deltaTime, ZoneKeyType key)
+inline void CZoneServer::RegisterLoginZone(const wchar_t *ThreadName, int deltaTime, ZoneKeyType key, bool bEventUse)
 {
     // 이벤트 방식과 Frame 방식 을 고려해야할듯.
     // ContentsLogic의 경우는 프레임이 존재하므로 겸사겸사 하트비트가능.
     // LoginLogic의 경우 프레임으로 돌 이유가 없음. 이벤트가 필요.
 
-    RT_ASSERT(_LoginZone != nullptr);
+    RT_ASSERT(_LoginZone == nullptr);
 
     if (InterlockedCompareExchange(&_bLoginZoneChk, 1, 0) != 0)
     {
@@ -116,12 +105,11 @@ inline void CZoneServer::RegisterLoginZone(const wchar_t *ThreadName, int deltaT
     static_assert(std::is_default_constructible_v<T>, " Regiset Login  T need default constructor ");
 
     T *LoginZone = new T();
-    _hLoginEvent = CreateEvent(nullptr, 0, 0, nullptr);
-    _LoginZone = new ZoneSet(LoginZone, ThreadName, deltaTime, this , _hLoginEvent);
+    _LoginZone = new ZoneSet(LoginZone, ThreadName, deltaTime, this, bEventUse);
 }
 
 template <typename T>
-inline void CZoneServer::RegisterZone(const wchar_t *ThreadName, int deltaTime, ZoneKeyType key)
+inline void CZoneServer::RegisterZone(const wchar_t *ThreadName, int deltaTime, ZoneKeyType key,bool bEventUse)
 {
     // 단 T의 타입은 IZone의 자식 클래스여야함.
     static_assert(std::is_base_of_v<IZone, T>, " T is not from IZone ");
@@ -129,7 +117,7 @@ inline void CZoneServer::RegisterZone(const wchar_t *ThreadName, int deltaTime, 
         " T need default constructor ");
 
     T *newZone = new T();
-    ZoneSet *zoneSet = new ZoneSet(newZone, ThreadName,  deltaTime,this);
+    ZoneSet *zoneSet = new ZoneSet(newZone, ThreadName, deltaTime, this, bEventUse);
     // 해당 Server가 관리하는 zoneSet목록
 
 
@@ -137,7 +125,7 @@ inline void CZoneServer::RegisterZone(const wchar_t *ThreadName, int deltaTime, 
     auto iter = _zoneKeyMap.find(key);
     if (iter == _zoneKeyMap.end())
     {
-        _zoneKeyMap.insert({key});
+        _zoneKeyMap[key];
     }
     _zoneKeyMap[key].emplace_back(zoneSet);
 
