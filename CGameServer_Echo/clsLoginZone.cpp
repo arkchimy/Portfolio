@@ -30,11 +30,14 @@ void clsLoginZone::OnEnterWorld(ull SessionID, SOCKADDR_IN &addr, void *pPlayer)
         auto sessionIDIter = SessionID_hash.find(SessionID); // 있어야함.
 
         // 이미 있었다면 문제임
-        if (prePlayerIter != prePlayer_hash.end() || sessionIDIter == SessionID_hash.end())
+        if (prePlayerIter != prePlayer_hash.end())
         {
             __debugbreak();
         }
-
+        if (sessionIDIter == SessionID_hash.end())
+        {
+            __debugbreak();
+        }
         player = static_cast<stPlayer *>(pPlayer);
 
 

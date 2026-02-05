@@ -88,7 +88,8 @@ void ZoneSet::ZoneThread()
                 m_zone->OnDisConnect(SessionID);
                 iter = sessions.erase(iter);
                 sessionCount--;
-                targetZone->Push(SessionID);
+                if (this != _server->GetLoginZoneSet())
+                    targetZone->Push(SessionID);
                 continue;
             }
             else if (session->m_zoneSet != this)

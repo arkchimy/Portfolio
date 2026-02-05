@@ -55,7 +55,7 @@ class CZoneServer : public CLanServer
 
     void RequeseMoveZone(ull SessionID, ZoneKeyType targetZone, void *pPlayer);
 
-
+    ZoneSet *GetLoginZoneSet() { return _LoginZone; }
     protected:
     ZoneSet *_LoginZone = nullptr;
 
