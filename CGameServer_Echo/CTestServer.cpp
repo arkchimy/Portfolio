@@ -398,7 +398,7 @@ void CTestServer::MonitorThread()
                 g_MonitorData[enMonitorType::UserCnt] = static_cast<int>(UserCnt);
                 g_MonitorData[enMonitorType::AcceptTPS] = static_cast<int>(currentAcceptTps);
                 g_MonitorData[enMonitorType::RecvTPS] = static_cast<int>(RecvTps);
-                g_MonitorData[enMonitorType::SendTPS] = static_cast<int>(TotalTPS);
+                g_MonitorData[enMonitorType::SendTPS] = static_cast<int>(EchoTps + ResLoginTps + HeartTps);
                 g_MonitorData[enMonitorType::DB_WRITE_TPS] = static_cast<int>(0);
                 g_MonitorData[enMonitorType::DB_WRITE_MSG] = static_cast<int>(0);
                 g_MonitorData[enMonitorType::AUTH_THREAD_FPS] = static_cast<int>(LoginFPS);
