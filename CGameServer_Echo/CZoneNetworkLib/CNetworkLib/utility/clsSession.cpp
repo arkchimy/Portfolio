@@ -39,7 +39,9 @@ void ZoneSet::ZoneThread()
                 TargetTime += _deltaTime;
         }
         else
+        {
             TargetTime += _deltaTime;
+        }
 
         // Zone자체의 Q에서 빼기.
         do
@@ -67,7 +69,10 @@ void ZoneSet::ZoneThread()
                             // Attack : 조작된 패킷으로 checkSum이 다름.
                             session->m_blive = 0;
                             stTlsObjectPool<CMessage>::Release(msg);
-                            return;
+                            CSystemLog::GetInstance()->Log(L"Attack", en_LOG_LEVEL::ERROR_Mode,
+                                                           L"%-20s ",
+                                                           L" false Packet CheckSum Not Equle ");
+                            break;
                         }
                     }
                     msg->_frontPtr = msg->_frontPtr + _server->GetheaderSize();
@@ -89,6 +94,7 @@ void ZoneSet::ZoneThread()
 
                     m_zone->OnDisConnect(SessionID);
                     iter = sessions.erase(iter);
+                    // LoginZone에서 Balance용도로 늘리고있음
                     InterlockedDecrement64(&sessionCount);
                     if (this != _server->GetLoginZoneSet())
                     {

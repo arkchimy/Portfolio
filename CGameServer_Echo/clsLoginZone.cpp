@@ -43,7 +43,7 @@ void clsLoginZone::OnEnterWorld(ull SessionID, SOCKADDR_IN &addr, void *pPlayer)
 
         prePlayer_hash.insert({SessionID, player});
         Auth_SessionCnt = prePlayer_hash.size();
-
+        player->_lastRecvTime = timeGetTime();
 
         return;
     }
@@ -65,7 +65,7 @@ void clsLoginZone::OnEnterWorld(ull SessionID, SOCKADDR_IN &addr, void *pPlayer)
         prePlayer_hash.insert({SessionID, player});
         Auth_SessionCnt = prePlayer_hash.size();
     }
-
+    player->_lastRecvTime = timeGetTime();
     AcceptTps++;
 }
 
@@ -102,16 +102,17 @@ void clsLoginZone::OnUpdate()
     DWORD currentTime = timeGetTime();
     DWORD distance;
 
-    //TODO : 하트비트 현재 하고있지않음.
-    /*for (auto &iter : prePlayer_hash)
+    for (auto &iter : prePlayer_hash)
     {
         stPlayer *player = iter.second;
         distance = currentTime - player->_lastRecvTime;
         if (distance >= _sessionTimeoutMs)
         {
+            CSystemLog::GetInstance()->Log(L"OnDisConnect", en_LOG_LEVEL::ERROR_Mode, L"LoginZone_DisConnect %20s SessionID : %lld  Distance : %d CurrentTime : %d  player->_lastRecvTime : %d ",
+                                           L" HeartBeat   ",player->_SessionID, distance ,  currentTime, player->_lastRecvTime);
             _server->Disconnect(player->_SessionID);
         }
-    }*/
+    }
 }
 
 void clsLoginZone::OnLeaveWorld(ull SessionID)
@@ -259,7 +260,7 @@ bool clsLoginZone::PacketProc(ull SessionID, CMessage *msg)
 void clsLoginZone::REQ_LOGIN(ull SessionID, CMessage *msg, INT64 AccountNo, WCHAR *SessionKey, WORD wType, BYTE bBroadCast, std::vector<ull> *pIDVector, size_t wVectorLen)
 {
     stPlayer *player;
-
+    stTlsObjectPool<CMessage>::Release(msg);
     {
         // Login응답.
         // redis에서 읽기, 가져오고 token을 비교 같다면
@@ -295,7 +296,6 @@ void clsLoginZone::REQ_LOGIN(ull SessionID, CMessage *msg, INT64 AccountNo, WCHA
                                                L"LoginError - hash is Not Equle: ", SessionKeyA,
                                                L"현재들어온ID:", sessionKey);
 
-                stTlsObjectPool<CMessage>::Release(msg);
                 _server->Disconnect(SessionID);
 
 

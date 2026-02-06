@@ -92,7 +92,7 @@ class ZoneSet
     IZone *m_zone;
     WinThread m_Thread;
     int _deltaTime;
-
+    LONG64 SendBufferMaxSize = 150;
     //SessionID만 넣기
     CLockFreeQueue<ull> q;
     //해당 Zone에 존재하는 session들.

@@ -400,7 +400,6 @@ bool CLanServer::Disconnect(const ull SessionID)
 {
     // WorkerThread에서 호출하는 DisConnect이므로  IO가 '0' 이 되는 경우의 수가 없음.
     clsSession &session = sessions_vec[SessionID >> 47];
-
     ull Local_ioCount;
 
     // session의 보장 장치.
@@ -470,7 +469,7 @@ void CLanServer::RecvComplete(clsSession &session, DWORD transferred)
     {
         msgCount++;
         // OverSend를 150개 이상하였다면 끊기.
-        if (msgCount >= 500)
+        if (msgCount >= 150)
         {
             Disconnect(session.m_SeqID);
             CSystemLog::GetInstance()->Log(L"Attack", en_LOG_LEVEL::ERROR_Mode,
@@ -483,6 +482,10 @@ void CLanServer::RecvComplete(clsSession &session, DWORD transferred)
         if (header.sDataLen >= max_MsgLen)
         {
             Disconnect(session.m_SeqID);
+            CSystemLog::GetInstance()->Log(L"Attack", en_LOG_LEVEL::ERROR_Mode,
+                                           L"%-20s ",
+                                           L" max_MsgLen Over %d", header.sDataLen);
+
             return;
         }
 
@@ -769,10 +772,10 @@ void CLanServer::Unicast(ull SessionID, CMessage *msg, LONG64 Account)
     if (session.m_sendBuffer.m_size >= SendBufferLimit)
     {
         Disconnect(SessionID);
-        //CSystemLog::GetInstance()->Log(L"Attack", en_LOG_LEVEL::SYSTEM_Mode,
-        //                               L"%-20s %-10s,%llu",
-        //                               L"UnitCast_sendBuffer.m_size == SendBufferLimit",
-        //                               L"SessionID :", SessionID);
+        CSystemLog::GetInstance()->Log(L"Attack", en_LOG_LEVEL::SYSTEM_Mode,
+                                       L"%-20s %-10s,%llu",
+                                       L"UnitCast_sendBuffer.m_size == SendBufferLimit",
+                                       L"SessionID :", SessionID);
     }
     SessionUnLock(SessionID);
 }
@@ -809,10 +812,10 @@ void CLanServer::BroadCast(ull SessionID, CMessage *msg, std::vector<ull> *pIDVe
         if (session.m_sendBuffer.m_size >= SendBufferLimit)
         {
             Disconnect(currentSessionID);
-            //CSystemLog::GetInstance()->Log(L"Attack", en_LOG_LEVEL::SYSTEM_Mode,
-            //                               L"%-20s %-10s,%llu",
-            //                               L"Broad_sendBuffer.m_size == SendBufferLimit",
-            //                               L"SessionID :", currentSessionID);
+            CSystemLog::GetInstance()->Log(L"Attack", en_LOG_LEVEL::SYSTEM_Mode,
+                                           L"%-20s %-10s,%llu",
+                                           L"Broad_sendBuffer.m_size == SendBufferLimit",
+                                           L"SessionID :", currentSessionID);
         }
         SessionUnLock(currentSessionID);
     }

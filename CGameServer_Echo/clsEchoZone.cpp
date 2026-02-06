@@ -14,7 +14,7 @@ void clsEchoZone::OnEnterWorld(ull SessionID, SOCKADDR_IN &addr, void *pPlayer)
         RES_LOGIN(SessionID, msg, 1, player->_AccountNo);
         _msgTypeCntArr[ReqLoginPack]++;
     }
-
+    player->_lastRecvTime = timeGetTime();
 }
 
 void clsEchoZone::OnRecv(ull SessionID, CMessage *msg)
@@ -45,15 +45,18 @@ void clsEchoZone::OnUpdate()
     DWORD currentTime = timeGetTime();
     DWORD distance;
 
-    /*for (auto& iter : SessionID_hash)
+    for (auto& iter : SessionID_hash)
     {
         stPlayer *player = iter.second;
         distance = currentTime - player->_lastRecvTime;
         if (distance >= _sessionTimeoutMs)
         {
+            CSystemLog::GetInstance()->Log(L"OnDisConnect", en_LOG_LEVEL::ERROR_Mode, L"EchoZone_DisConnect %20s SessionID : %lld  player->_lastRecvTime : %d",
+                                           L" HeartBeat   ", player->_lastRecvTime);
+
             _server->Disconnect(player->_SessionID);
         }
-    }*/
+    }
 }
 
 void clsEchoZone::OnLeaveWorld(ull SessionID)
