@@ -107,7 +107,7 @@ class CObjectPool
         stSeqAddr temp;
         stSeqAddr oldSeqAddr;
 
-        ll id = _InterlockedIncrement64((ll*)&poolidx);
+        ll id = _InterlockedIncrement64((ll*)&poolidx);//
         DWORD iThreadID = GetCurrentThreadId();
         // Stack¿¡¼­ »©±â
         do

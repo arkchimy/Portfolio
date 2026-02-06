@@ -68,7 +68,7 @@ class CZoneServer : public CLanServer
   public:
     // Contents 별로 관리를 해야 함.
     // key : ContentID ,  std::vector<ZoneSet*>
-    
+    SharedMutex _zoneKeyMapLock;
     std::map<ZoneKeyType, std::vector<ZoneSet *>> _zoneKeyMap;
 
     LONG64 _EchoMaxUser = 750;

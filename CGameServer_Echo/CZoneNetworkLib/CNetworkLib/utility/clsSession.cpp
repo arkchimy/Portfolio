@@ -48,11 +48,6 @@ void ZoneSet::ZoneThread()
             {
                 clsSession *session = _server->GetSession(SessionId);
 
-                // session에 남아있는 msg 처분.
-                //while (session->m_ZoneBuffer.Pop(msg))
-                //{
-                //    stTlsObjectPool<CMessage>::Release(msg);
-                //}
                 sessions.push_back(session);
                 m_zone->OnEnterWorld(SessionId, session->_addr, session->pPlayer);
             }
@@ -100,6 +95,11 @@ void ZoneSet::ZoneThread()
                         targetZone->Push(SessionID);
                         SetEvent(targetZone->_hEvent);
                     }
+                    else
+                    {
+                        // LoginZone의 경우 반환
+                        ReleaseSession(*session);
+                    }
                     continue;
                 }
                 else if (session->m_zoneSet != this)
@@ -113,6 +113,12 @@ void ZoneSet::ZoneThread()
 
                         SessionID = session->m_SeqID;
                         targetZone = session->m_zoneSet;
+
+                        // session에 남아있는 msg 처분.
+                        while (session->m_ZoneBuffer.Pop(msg))
+                        {
+                             stTlsObjectPool<CMessage>::Release(msg);
+                        }
 
                         iter = sessions.erase(iter);
                         m_zone->OnLeaveWorld(SessionID);

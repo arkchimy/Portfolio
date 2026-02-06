@@ -58,8 +58,9 @@ class clsLoginZone : public IZone
 
 
     // 모니터링 정보
-
+    // 인증대기 중인 Session
     ull Auth_SessionCnt = 0;
+    // 인증된 카운트 전용Session
     ull User_SessionCnt = 0;
     
     // Frame 시 ++하기 1초의 구별은 모니터링 쓰레드에서 구현

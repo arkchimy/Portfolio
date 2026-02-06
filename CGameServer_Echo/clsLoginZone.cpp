@@ -158,23 +158,19 @@ void clsLoginZone::OnDisConnect(ull SessionID)
         if (iter != SessionID_hash.end())
         {
             SessionID_hash.erase(iter);
-            auto iter = Account_hash.find(AccountNo);
+            auto Accountiter = Account_hash.find(AccountNo);
             // 중복 로그인이라면 있던 player를 끊음.
             // 때문에 iter가 갖고있는 player의 sessionID가 새로 들어온 녀석일 수 있음.
-            if (iter != Account_hash.end())
+            if (Accountiter != Account_hash.end())
             {
-                if( SessionID == iter->second->_SessionID)
+                // 중복 로그인
+                if (SessionID == Accountiter->second->_SessionID)
                 {
-                    Account_hash.erase(iter);
+                    Account_hash.erase(Accountiter);
                     User_SessionCnt = Account_hash.size();
                 }
             }
-            else
-            {
-                //SessionID_hash는 추가되었는데 Account_hash에 남는경우는
-                // 말도안되는 상황.
-                __debugbreak();
-            }
+
         }
 
         // Player반환은 여기서.

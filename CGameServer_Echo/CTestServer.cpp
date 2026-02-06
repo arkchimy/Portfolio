@@ -7,6 +7,7 @@
 
 
 #pragma comment(lib, "Pdh.lib")
+void DumpNetworkInterfaceInstances();
 
 void CTestServer::MonitorThread()
 {
@@ -73,6 +74,13 @@ void CTestServer::MonitorThread()
         "Profiler_Mode : Off\n",
         "Profiler_Mode : On\n"};
 
+    PDH_STATUS s;
+    auto PDHCHK = [](PDH_STATUS s, const wchar_t *msg)
+    {
+        if (s != ERROR_SUCCESS)
+            wprintf(L"[PDH FAIL] %s : 0x%08X\n", msg, s);
+    };
+
     // PDH 쿼리 핸들 생성
     PDH_HQUERY hQuery;
     PdhOpenQuery(NULL, NULL, &hQuery);
@@ -109,22 +117,27 @@ void CTestServer::MonitorThread()
                   0, &AvailableMemoryMB);
 
     // 네트워크 수신량 (Bytes/sec)
-    PDH_HCOUNTER NetworkRecv;
-    PdhAddCounter(hQuery,
-                  L"\\Network Interface(*)\\Bytes Received/sec",
-                  0, &NetworkRecv);
 
-    // 네트워크 송신량 (Bytes/sec)
-    PDH_HCOUNTER NetworkSend;
-    PdhAddCounter(hQuery,
-                  L"\\Network Interface(*)\\Bytes Sent/sec",
-                  0, &NetworkSend);
+    PDH_HCOUNTER hSent0, hSent1, hSent2;
+    PDH_FMT_COUNTERVALUE v0{}, v1{}, v2{};
 
+    PDH_HCOUNTER NetworkRecv{};
+    PDH_HCOUNTER NetworkSend{};
 
-    PDH_HCOUNTER hTcp4Retrans;
+    // NetWork
+    PDH_FMT_COUNTERVALUE vTcp4Retr;
+    PDH_FMT_COUNTERVALUE vTcp4Send;
+    PDH_FMT_COUNTERVALUE vTcp4Recv;
 
-    PdhAddCounter(hQuery, L"\\TCPv4\\Segments Retransmitted/sec", 0, &hTcp4Retrans);
+    PDH_HCOUNTER hTcp4Retrans, hTcp4SegSent, hTcp4SegRecv;
 
+    {
+        // 네트워크 수신 (KB/sec)
+        PdhAddCounter(hQuery, L"\\TCPv4\\Segments Retransmitted/sec", 0, &hTcp4Retrans);
+        PdhAddCounter(hQuery, L"\\TCPv4\\Segments Sent/sec", 0, &hTcp4SegSent);
+        PdhAddCounter(hQuery, L"\\TCPv4\\Segments Received/sec", 0, &hTcp4SegRecv);
+
+    }
 
     PdhCollectQueryData(hQuery);
     CCpuUsage CPUTime;
@@ -144,23 +157,11 @@ void CTestServer::MonitorThread()
         nextTime = currentTime;
         LONG64 TotalTPS = 0;
 
-        //while (1)
-        //{
-        //    nextTime += 1000;
-
-        //    printf(" %-25s : %10lld\n", "PacketPool", stTlsObjectPool<CMessage>::instance.m_TotalCount);
-        //    currentTime = timeGetTime();
-        //    if (nextTime > currentTime)
-        //        Sleep(nextTime - currentTime);
-        //}
-        
-        //lock을 획득하고 모든 Zone을 돔.
-
 
         while (1)
         {
             nextTime += 1000;
-
+            PdhCollectQueryData(hQuery);
             {
                 // ull SessionCnt; // Network에서의 Session 수
                 // ull AuthCnt;    // 인증 대기 Session수
@@ -289,7 +290,6 @@ void CTestServer::MonitorThread()
 
             {
                 // 1초마다 갱신
-                PdhCollectQueryData(hQuery);
 
                 CPUTime.UpdateCpuTime();
                 // 갱신 데이터 얻음
@@ -327,7 +327,7 @@ void CTestServer::MonitorThread()
                     nullptr,
                     &nonpagedVal);
 
-                double nonpagedMB =
+                int nonpagedMB =
                     nonpagedVal.largeValue / (1024.0 * 1024.0);
 
                 // 사용 가능 메모리 (이미 MB)
@@ -338,46 +338,48 @@ void CTestServer::MonitorThread()
                     nullptr,
                     &availMemVal);
 
+                PdhGetFormattedCounterValue(hTcp4SegSent, PDH_FMT_DOUBLE, NULL, &vTcp4Send);
+                PdhGetFormattedCounterValue(hTcp4SegRecv, PDH_FMT_DOUBLE, NULL, &vTcp4Recv);
+                PdhGetFormattedCounterValue(hTcp4Retrans, PDH_FMT_DOUBLE, NULL, &vTcp4Retr);
+
                 LONG64 availableMB = availMemVal.largeValue;
 
-                // 네트워크 수신 (KB/sec)
-                PDH_FMT_COUNTERVALUE netRecvVal;
-                PdhGetFormattedCounterValue(
-                    NetworkRecv,
-                    PDH_FMT_LARGE,
-                    nullptr,
-                    &netRecvVal);
-
-                double netRecvKB =
-                    netRecvVal.largeValue / 1024.0;
+                {
+                    wprintf(L"\n ============================================ TCP Retransmission ============================================ \n");
+                    wprintf(L"TCPv4 Segments Send/sec : %.2f\n", vTcp4Send.doubleValue);
+                    wprintf(L"TCPv4 Segments Recv/sec : %.2f\n", vTcp4Recv.doubleValue);
+                    wprintf(L"TCPv4 Segments Retransmitted/sec : %.2f\n", vTcp4Retr.doubleValue);
+                    wprintf(L" ============================================================================================================== \n");
+                    
+                }
 
                 // 네트워크 송신 (KB/sec)
-                PDH_FMT_COUNTERVALUE netSendVal;
-                PdhGetFormattedCounterValue(
-                    NetworkSend,
-                    PDH_FMT_LARGE,
-                    nullptr,
-                    &netSendVal);
+
+
 
                 double netSendKB =
-                    netSendVal.largeValue / 1024.0;
+                    vTcp4Send.doubleValue / 1024.0;
+                double netRecvKB =
+                    vTcp4Recv.doubleValue / 1024.0;
 
                 g_MonitorTotalData[(BYTE)enMonitorTotal::TimeStamp] = (int)currenttt;
-                    (int)(cpuPercent ); // 소수 제거하고 싶으면
+                    static_cast<int>(cpuPercent ); // 소수 제거하고 싶으면
                 g_MonitorTotalData[(BYTE)enMonitorTotal::CPU_TOTAL] =
-                    (int)(cpuPercent ); // 소수 제거하고 싶으면
+                        static_cast<int>(cpuPercent); // 소수 제거하고 싶으면
 
                 g_MonitorTotalData[(BYTE)enMonitorTotal::NONPAGED_MEMORY] =
-                    (int)nonpagedMB;
+                    static_cast<int>(nonpagedMB);
 
                 g_MonitorTotalData[(BYTE)enMonitorTotal::AVAILABLE_MEMORY] =
-                    (int)availableMB;
+                    static_cast<int>(availableMB);
 
                 g_MonitorTotalData[(BYTE)enMonitorTotal::NETWORK_RECV] =
-                    (int)netRecvKB;
+                    static_cast<int>(netRecvKB);
 
                 g_MonitorTotalData[(BYTE)enMonitorTotal::NETWORK_SEND] =
-                    (int)netSendKB;
+                    static_cast<int> (netSendKB);
+
+ 
             }
         
 
@@ -388,20 +390,20 @@ void CTestServer::MonitorThread()
                 int totalCountentSize = 0;
 
 
-                g_MonitorData[enMonitorType::TimeStamp] = (int)currenttt;
+                g_MonitorData[enMonitorType::TimeStamp] = static_cast<int>(currenttt);
                 g_MonitorData[enMonitorType::On] = bOn;
-                g_MonitorData[enMonitorType::Cpu] = (int)CPUTime.ProcessTotal();
-                g_MonitorData[enMonitorType::Memory] = (int)(Process_PrivateByteVal.largeValue / 1024 / 1024);
-                g_MonitorData[enMonitorType::SessionCnt] = (int)GetSessionCount();
-                g_MonitorData[enMonitorType::UserCnt] = (int)UserCnt;
-                g_MonitorData[enMonitorType::AcceptTPS] = (int)currentAcceptTps;
-                g_MonitorData[enMonitorType::RecvTPS] = (int)RecvTps;
-                g_MonitorData[enMonitorType::SendTPS] = (int)TotalTPS;
-                g_MonitorData[enMonitorType::DB_WRITE_TPS] = (int)0;
-                g_MonitorData[enMonitorType::DB_WRITE_MSG] = (int)0;
-                g_MonitorData[enMonitorType::AUTH_THREAD_FPS] = (int)LoginFPS;
-                g_MonitorData[enMonitorType::GAME_THREAD_FPS] = (int)EchoFPS;
-                g_MonitorData[enMonitorType::PACKET_POOL] = (int)stTlsObjectPool<CMessage>::instance.m_TotalCount;
+                g_MonitorData[enMonitorType::Cpu] = static_cast<int>(CPUTime.ProcessTotal());
+                g_MonitorData[enMonitorType::Memory] = static_cast<int>((Process_PrivateByteVal.largeValue / 1024 / 1024));
+                g_MonitorData[enMonitorType::SessionCnt] = static_cast<int>(GetSessionCount());
+                g_MonitorData[enMonitorType::UserCnt] = static_cast<int>(UserCnt);
+                g_MonitorData[enMonitorType::AcceptTPS] = static_cast<int>(currentAcceptTps);
+                g_MonitorData[enMonitorType::RecvTPS] = static_cast<int>(RecvTps);
+                g_MonitorData[enMonitorType::SendTPS] = static_cast<int>(TotalTPS);
+                g_MonitorData[enMonitorType::DB_WRITE_TPS] = static_cast<int>(0);
+                g_MonitorData[enMonitorType::DB_WRITE_MSG] = static_cast<int>(0);
+                g_MonitorData[enMonitorType::AUTH_THREAD_FPS] = static_cast<int>(LoginFPS);
+                g_MonitorData[enMonitorType::GAME_THREAD_FPS] = static_cast<int>(EchoFPS);
+                g_MonitorData[enMonitorType::PACKET_POOL] = static_cast<int>(stTlsObjectPool<CMessage>::instance.m_TotalCount);
 
                 SetEvent(g_hMonitorEvent);
             }
@@ -411,5 +413,44 @@ void CTestServer::MonitorThread()
                 Sleep(nextTime - currentTime);
         }
         
+    }
+}
+
+void DumpNetworkInterfaceInstances()
+{
+    DWORD counterListSize = 0;
+    DWORD instanceListSize = 0;
+
+    PDH_STATUS s = PdhEnumObjectItemsW(
+        NULL,
+        NULL,
+        L"Network Interface",
+        NULL, &counterListSize,
+        NULL, &instanceListSize,
+        PERF_DETAIL_WIZARD,
+        0);
+
+    std::vector<wchar_t> counters(counterListSize);
+    std::vector<wchar_t> instances(instanceListSize);
+
+    s = PdhEnumObjectItemsW(
+        NULL,
+        NULL,
+        L"Network Interface",
+        counters.data(), &counterListSize,
+        instances.data(), &instanceListSize,
+        PERF_DETAIL_WIZARD,
+        0);
+
+    if (s != ERROR_SUCCESS)
+    {
+        printf("PdhEnumObjectItemsW failed: 0x%08X\n", s);
+        return;
+    }
+
+    printf("=== Network Interface Instances ===\n");
+    for (wchar_t *p = instances.data(); *p; p += wcslen(p) + 1)
+    {
+        wprintf(L"[%s]\n", p);
     }
 }
