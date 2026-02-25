@@ -1,0 +1,177 @@
+#pragma once
+#define WIN32_LEAN_MEAN
+#include <Windows.h>
+
+#include <cstddef>   // offsetof
+#include <cstdint>   // uint32_t
+#include <iostream>
+
+#pragma comment(lib,"winmm.lib")
+
+/*
+*	======================== Pool에서 주의할 점. ========================
+*
+	■ 두 번이상 Release 되는 경우
+	=> 반환시에 _bActive를 확인하여 2번 반환되는 경우를 방지.
+
+	■ 반환된 Node가  나의 Pool에서 할당한 것이 아닌 경우.
+	=> OwnerPool의 Pointer를 들고 반환 시에 stNode에 저장된 OwnerPool과의 비교.
+
+	■ 반환되지 않은 Node가 존재하는 경우.
+	=> Pool의 삭제 시  "ActiveCnt == 0 " 체크.
+
+	■ 반환과 할당 과정에서 요소가 소실되는 경우.
+	=> Pool의 삭제 시 반환된 Node를 Delete 후 "AllocCnt == 0 " 체크.
+
+	■ 반환을 하지않는 요소에대한 추적.
+	=> 할당을 할때마다 Lock을 걸고 ActicveNodes List 를 작성.
+		=> Touch 함수를 만들고 해당 객체에 대해 접근할떄 호출. __Line__ 정보를 남기기
+			=> cap을 걸어두고, 도달 시에 가장 오래된 순으로 정렬
+
+
+*/
+
+#define POOL_TOUCH(type,p)	reinterpret_cast<decltype(type)::stNode*>(((char*)(p) - offsetof(decltype(type)::stNode, _data)))->Touch(__FILE__,__LINE__) 
+
+template <typename T>
+class CObjectPool final
+{
+private:
+	enum : uint64_t
+	{
+		GuardValue = 0xfdfdfdfdfdfdfdfd,
+	};
+public:
+	struct stNode final
+	{
+	    explicit stNode(CObjectPool* ownerPool) 
+			:
+#ifdef _DEBUG
+			_bActive(false), _frontGuard(GuardValue), _backGuard(GuardValue),_file(nullptr),_line(0),
+#endif
+		_next(nullptr), _ownerPool(ownerPool)
+		{
+		}
+		stNode(const stNode& other) = delete;
+		stNode(stNode&& other) = delete;
+
+		stNode& operator = (const stNode& other) = delete;
+		stNode& operator = (stNode&& other) = delete;
+
+		void Touch(const char* file,int line)
+		{
+#ifdef _DEBUG
+			_file = file;
+			_line = line;
+			_lastTime = timeGetTime();
+#endif
+		}
+
+#ifdef _DEBUG
+		bool _bActive;
+		uint64_t _frontGuard;
+		T _data{};
+		uint64_t _backGuard;
+		stNode* _next;
+		const char* _file;
+		int _line;
+		int32_t _lastTime;
+#else
+		T _data{};
+		stNode* _next;
+#endif // _DEBUG
+		CObjectPool* _ownerPool;
+	};
+public:
+	CObjectPool()
+		:_AllocNodeCnt(0), _ActiveNodeCnt(0)
+	{
+	}
+	~CObjectPool()
+	{
+		stNode* oldTop;
+		if (_ActiveNodeCnt != 0)
+			__debugbreak();
+
+		while (_top != &_dummy)
+		{
+			oldTop = _top;
+			_top = oldTop->_next;
+			delete oldTop;
+			_AllocNodeCnt--;
+		}
+
+		if (_AllocNodeCnt != 0)
+			__debugbreak();
+	}
+public:
+	void* Alloc();
+	void Release(void* ptr);
+
+	uint64_t GetActiveNodeCnt() const {
+		return _ActiveNodeCnt;
+	}
+
+	__int64 GetAllocNodeCnt() const {
+		return _AllocNodeCnt;
+	}
+private:
+	// 해당 ObjectPool 에서 할당한 Node수
+	uint64_t _AllocNodeCnt;
+	// 아직 반환되지않은 Node의 Cnt
+	uint64_t _ActiveNodeCnt;
+
+	stNode _dummy{this};
+	stNode* _top = &_dummy;
+};
+
+template<typename T>
+inline void* CObjectPool<T>::Alloc()
+{
+	stNode* retNode;
+	if (_top == &_dummy)
+	{
+		retNode = new stNode(this);
+		_AllocNodeCnt++;
+	}
+	else
+	{
+		retNode = _top;
+		_top = retNode->_next;
+	}
+#ifdef _DEBUG
+	retNode->_bActive = true;
+#endif
+	_ActiveNodeCnt++;
+
+	return (char*)retNode + offsetof(stNode, _data);
+}
+
+template<typename T>
+inline void CObjectPool<T>::Release(void* ptr)
+{
+	void* Ptr = (char*)ptr - offsetof(stNode, _data);
+	stNode* retNode = static_cast<stNode*>(Ptr);
+
+#ifdef _DEBUG
+	// 할당한 Pool이 아닐 경우
+	if (retNode->_ownerPool != this)
+		__debugbreak();
+	// 2번 Release 
+	if (retNode->_bActive == false)
+		__debugbreak();
+	// 버퍼 오버런
+	if (retNode->_frontGuard != GuardValue)
+		__debugbreak();
+	if (retNode->_backGuard != GuardValue)
+		__debugbreak();
+#endif
+
+	retNode->_next = _top;
+
+#ifdef _DEBUG
+	retNode->_bActive = false;
+#endif
+	_top = retNode;
+	_ActiveNodeCnt--;
+}
