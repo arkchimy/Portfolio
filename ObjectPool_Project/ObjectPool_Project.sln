@@ -5,7 +5,7 @@ VisualStudioVersion = 17.14.36212.18
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ObjectPool_Project", "ObjectPool_Project.vcxproj", "{EFF13468-22D8-4663-B029-BA9EB1071052}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Profiler_lib", "..\..\_Portfolio\_Lib\Profiler_lib\Profiler_lib.vcxproj", "{E92CCFAA-FF06-4603-80D7-EB4BF977F2E8}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Profiler_lib", "..\_Lib\Profiler_lib\Profiler_lib.vcxproj", "{E92CCFAA-FF06-4603-80D7-EB4BF977F2E8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
