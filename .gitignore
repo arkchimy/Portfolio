@@ -399,3 +399,6 @@ FodyWeavers.xsd
 # JetBrains Rider
 *.sln.iml
 */.vs/*
+ - 복사본.clang-format
+ - 복사본.gitignore
+24_11_11 - 복사본.txt
