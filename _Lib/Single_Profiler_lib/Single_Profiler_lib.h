@@ -1,6 +1,5 @@
-#pragma once
+ï»¿#pragma once
 #define WIN32_LEAN_AND_MEAN
-#define PROFILE
 
 #include <Windows.h>
 #include <stdint.h>
@@ -8,6 +7,7 @@
 
 #include <stack>
 #include <string>
+#include <conio.h>
 
 #pragma comment(lib, "winmm.lib")
 
@@ -22,9 +22,9 @@ struct stProfileManager
         {
             _freeIndex.push(i);
         }
-        _fileName += L"Profile_"; 
-        _fileName += TEXT(__DATE__); 
-        _fileName += L".txt"; 
+        _fileName += L"singleProfile_";
+        _fileName += TEXT(__DATE__);
+        _fileName += L".txt";
     }
 
   public:
@@ -52,7 +52,7 @@ struct stProfileManager
         {
             if (_freeIndex.empty())
             {
-                // entry°¡ °¡µæ Âü.
+                // entryê°€ ê°€ë“ ì°¸.
                 __debugbreak();
             }
             idx = _freeIndex.top();
@@ -64,7 +64,7 @@ struct stProfileManager
         entry->_totalCnt++;
         entry->_totalTime += distanceTime;
 
-        // _minÁß¿¡  °¡Àå Å« °ªº¸´Ù ÀÛ´Ù¸é, ÀûÀıÇÑ À§Ä¡ Å½»ö.
+        // _minì¤‘ì—  ê°€ì¥ í° ê°’ë³´ë‹¤ ì‘ë‹¤ë©´, ì ì ˆí•œ ìœ„ì¹˜ íƒìƒ‰.
         if (distanceTime < entry->_min[AbnormalBufferSize - 1])
         {
             for (int i = 0; i < AbnormalBufferSize; i++)
@@ -80,10 +80,8 @@ struct stProfileManager
                 }
             }
         }
-        entry->_avg = (static_cast<double>(entry->_totalTime) / entry->_totalCnt) * 1e6 / _QPC_frequency.QuadPart;
-
-        // _max[] ³»¸² Â÷¼øÀ¸·Î
-        // _maxÁß °¡Àå ÀÛÀº °Íº¸´Ù Å©´Ù¸é, ÀûÀıÇÑ À§Ä¡ Ã£±â.
+        // _max[] ë‚´ë¦¼ ì°¨ìˆœìœ¼ë¡œ
+        // _maxì¤‘ ê°€ì¥ ì‘ì€ ê²ƒë³´ë‹¤ í¬ë‹¤ë©´, ì ì ˆí•œ ìœ„ì¹˜ ì°¾ê¸°.
         if (entry->_max[AbnormalBufferSize - 1] < distanceTime)
         {
             for (int i = 0; i < AbnormalBufferSize; i++)
@@ -102,6 +100,7 @@ struct stProfileManager
     }
     void CreateProfile();
     void ResetEntry();
+
   private:
     enum enConfig : int64_t
     {
@@ -127,11 +126,10 @@ struct stProfileManager
     std::stack<int32_t> _freeIndex;
 
     LARGE_INTEGER _QPC_frequency;
-    
+
     std::wstring _fileName;
     FILE *hFile = nullptr;
 };
-
 
 struct stProfile
 {
@@ -157,7 +155,7 @@ struct stProfile
         LARGE_INTEGER currentTime;
         int64_t distance;
 
-        // ¹Ì¸® ½Ã°£ ÃøÁ¤
+        // ë¯¸ë¦¬ ì‹œê°„ ì¸¡ì •
         QueryPerformanceCounter(&currentTime);
         distance = currentTime.QuadPart - startTime.QuadPart;
 

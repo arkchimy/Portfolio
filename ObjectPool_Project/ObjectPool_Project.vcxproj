@@ -77,6 +77,7 @@
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)PROFILE;_POOLTRACE;</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -107,6 +108,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)PROFILE;_POOLTRACE;</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -142,6 +144,9 @@
   <ItemGroup>
     <ProjectReference Include="..\_Lib\Profiler_lib\Profiler_lib.vcxproj">
       <Project>{e92ccfaa-ff06-4603-80d7-eb4bf977f2e8}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\_Lib\Single_Profiler_lib\Single_Profiler_lib.vcxproj">
+      <Project>{12aa7cbf-3330-49fe-b48f-b75b53b59d45}</Project>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

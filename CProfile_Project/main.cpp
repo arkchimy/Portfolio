@@ -13,12 +13,24 @@ int main()
     {
         {
             stProfile profile(L"test");
+            for (int i = 0; i < 1000; i++)
+            {
+                i++;
+            }
         }
         {
             stProfile profile(L"test2");
+            for (int i = 0; i < 100000; i++)
+            {
+                i++;
+            }
         }
         {
             stProfile profile(L"test3");
+            for (int i = 0; i < 1000000; i++)
+            {
+                i++;
+            }
         }
         Sleep(100);
         #ifdef PROFILE
@@ -27,11 +39,11 @@ int main()
             char ch = _getch();
             if (ch == 'A' || ch == 'a')
             {
-                stProfileManager::GetInstance()->CreateProfile(L"Profile");
+                stProfileManager::GetInstance()->CreateProfile();
             }
             else if (ch == 'D' || ch == 'd')
             {
-                stProfileManager::GetInstance()->EntryReset();
+                stProfileManager::GetInstance()->ResetEntry();
             }
         }
         #endif   
