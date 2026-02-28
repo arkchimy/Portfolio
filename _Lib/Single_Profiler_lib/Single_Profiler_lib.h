@@ -25,15 +25,24 @@ struct stProfileManager
         _fileName += L"singleProfile_";
         _fileName += TEXT(__DATE__);
         _fileName += L".txt";
-    }
 
+        atexit(Destroy);
+    }
+    ~stProfileManager()
+    {
+        //소멸자 
+    }
   public:
     static stProfileManager *GetInstance()
     {
-        static stProfileManager *instance = nullptr;
         if (instance == nullptr)
             instance = new stProfileManager();
         return instance;
+    }
+    static void Destroy()
+    {
+        delete instance;    
+        instance = nullptr;
     }
     void UpdateEntry(const wchar_t *tag, int64_t distanceTime)
     {
@@ -121,6 +130,18 @@ struct stProfileManager
         int64_t _max[AbnormalBufferSize];
 
         double _avg;
+        void InitEntry()
+        {
+            // tag는 유지 
+            _totalTime = 0;
+            _totalCnt = 0;
+   
+            for (int i = 0; i < AbnormalBufferSize; i++)
+            {
+                _min[i] = INT_MAX;  
+                _max[i] = 0;
+            }
+        }
     };
     stProfileEntry _entrys[EnTryMaxSize];
     std::stack<int32_t> _freeIndex;
@@ -129,6 +150,7 @@ struct stProfileManager
 
     std::wstring _fileName;
     FILE *hFile = nullptr;
+    inline static stProfileManager *instance = nullptr;
 };
 
 struct stProfile

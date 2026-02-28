@@ -79,7 +79,7 @@ void stProfileManager::ResetEntry()
 {
     for (int i = 0; i < EnTryMaxSize; i++)
     {
-        ZeroMemory(&_entrys[i], sizeof(_entrys[i]));
+        _entrys[i].InitEntry();
     }
     _wfopen_s(&hFile, _fileName.c_str(), L"w+ ,ccs=UTF-16LE");
     if (hFile != nullptr)
