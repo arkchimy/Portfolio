@@ -135,7 +135,7 @@
   <ItemGroup>
     <ClCompile Include="CObjectPool.cpp" />
     <ClCompile Include="CProfiler.cpp" />
-    <ClCompile Include="ObjectPool_Project.cpp" />
+    <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CObjectPool.h" />
