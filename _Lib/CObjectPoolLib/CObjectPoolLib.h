@@ -38,6 +38,7 @@
 #else
 #define POOL_TOUCH(type, p)
 #endif
+
 template <typename T>
 class CObjectPool final
 {
@@ -45,9 +46,23 @@ class CObjectPool final
     enum : uint64_t
     {
         GuardValue = 0xfdfdfdfdfdfdfdfd,
+        AddressMask = 0xffffffff8 << 47,
     };
 
   public:
+    struct stSeqAddress
+    {
+        // 이 구조체는 8바이트임.
+        union
+        {
+            uint64_t _val; // [seq - 17][ address - 47]
+            struct
+            {
+                uint64_t _address : 47;   // 상위 17비트 사용
+                uint64_t _seqNumber : 17; // 하위 47비트를 사용
+            };
+        };
+    };
     struct stNode final
     {
         explicit stNode(CObjectPool *ownerPool)
@@ -57,6 +72,7 @@ class CObjectPool final
 #endif
               _next(nullptr), _ownerPool(ownerPool)
         {
+            _val._seqNumber = (uint64_t)this;
         }
         stNode(const stNode &other) = delete;
         stNode(stNode &&other) = delete;
@@ -91,27 +107,34 @@ class CObjectPool final
         T _data{};
         stNode *_next;
 #endif // _POOLTRACE
+       // [seqNumber : 17][Address : 47 ] 구조체
+        stSeqAddress _val;
         CObjectPool *_ownerPool;
     };
 
   public:
     CObjectPool()
-        : _AllocNodeCnt(0), _ActiveNodeCnt(0), _capacity(INT_MAX)
+        : _AllocNodeCnt(0), _ActiveNodeCnt(0), _capacity(INT_MAX), _seqNumber(0)
     {
 #ifdef _POOLTRACE
         InitializeSRWLock(&_srw_lock);
 #endif
+        _top = &_dummy._val;
     }
     ~CObjectPool()
     {
         stNode *oldTop;
+        stNode *node = reinterpret_cast<stNode *>(_top->_address);
         if (_ActiveNodeCnt != 0)
-            __debugbreak();
-
-        while (_top != &_dummy)
         {
-            oldTop = _top;
-            _top = oldTop->_next;
+            //반환되지 않은 노드가 존재
+            __debugbreak();
+        }
+
+        while (node != &_dummy)
+        {
+            oldTop = node;
+            node = oldTop->_next;
             delete oldTop;
             _AllocNodeCnt--;
         }
@@ -145,9 +168,10 @@ class CObjectPool final
     uint64_t _ActiveNodeCnt;
 
     stNode _dummy{this};
-    stNode *_top = &_dummy;
-    uint32_t _capacity;
+    stSeqAddress *_top;
 
+    uint32_t _capacity;
+    uint32_t _seqNumber;
 #ifdef _POOLTRACE
     std::list<stNode *> _ActiveNodes;
     SRWLOCK _srw_lock;
@@ -158,11 +182,12 @@ template <typename T>
 inline void *CObjectPool<T>::Alloc()
 {
     stNode *retNode;
+    stSeqAddress *newTop;
 
     do
     {
 
-        if (_top == &_dummy)
+        if (_top->_val == (uint64_t)&_dummy)
         {
             uint64_t local_AllocNodeCnt;
             retNode = new stNode(this);
@@ -177,10 +202,10 @@ inline void *CObjectPool<T>::Alloc()
         }
         else
         {
-            retNode = _top;
+            retNode = reinterpret_cast<stNode *>((uint64_t)(_top->_address));
+            newTop = &retNode->_next->_val;
         }
-    } while (InterlockedCompareExchange((unsigned long long *)&_top, (unsigned long long)_top->_next,
-                                        (unsigned long long)retNode) != (unsigned long long)retNode);
+    } while (_InterlockedCompareExchangePointer((volatile PVOID *)&_top, newTop, &retNode->_val) != &retNode->_val);
     _interlockedincrement64((long long *)&_ActiveNodeCnt);
 #ifdef _POOLTRACE
     retNode->_bActive = true;
@@ -198,8 +223,11 @@ inline void CObjectPool<T>::Release(void *ptr)
 {
     void *Ptr = (char *)ptr - offsetof(stNode, _data);
     stNode *retNode = static_cast<stNode *>(Ptr);
-    stNode *oldTop;
+    stSeqAddress *oldTop;
+    stNode *oldTopNode;
 
+    uint64_t local_seqNumber;
+    local_seqNumber = _InterlockedIncrement(&_seqNumber);
 #ifdef _POOLTRACE
     // 할당한 Pool이 아닐 경우
     if (retNode->_ownerPool != this)
@@ -231,10 +259,11 @@ inline void CObjectPool<T>::Release(void *ptr)
     do
     {
         oldTop = _top;
-        retNode->_next = oldTop;
+        oldTopNode = reinterpret_cast<stNode *>(oldTop->_address);
+        retNode->_next = oldTopNode;
+        retNode->_val._seqNumber = local_seqNumber;
+    } while (_InterlockedCompareExchangePointer((volatile PVOID *)&_top, &retNode->_val, oldTop) != oldTop);
 
-    } while (InterlockedCompareExchange((unsigned long long *)&_top, (unsigned long long)retNode,
-                                        (unsigned long long)oldTop) != (unsigned long long)oldTop);
     _InterlockedDecrement64((long long *)&_ActiveNodeCnt);
 }
 #ifdef _POOLTRACE
