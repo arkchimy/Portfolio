@@ -72,7 +72,7 @@ class CObjectPool final
 #endif
               _next(nullptr), _ownerPool(ownerPool)
         {
-            _val._seqNumber = (uint64_t)this;
+            _val._address = (uint64_t)this;
         }
         stNode(const stNode &other) = delete;
         stNode(stNode &&other) = delete;
