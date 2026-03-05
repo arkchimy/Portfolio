@@ -3,6 +3,7 @@
 #include <Windows.h>
 
 #include <list>
+#include <vector>
 
 #include <cstddef> // offsetof
 #include <cstdint> // uint32_t
@@ -39,6 +40,7 @@
 #define POOL_TOUCH(type, p)
 #endif
 // POOLTRACE
+
 template <typename T>
 class CObjectPool final
 {
@@ -62,6 +64,20 @@ class CObjectPool final
                 uint64_t _seqNumber : 17; // 하위 47비트를 사용
             };
         };
+    };
+    struct stLogInfo final
+    {
+        enum enMode : uint32_t
+        {
+            Node_Release = 0xdddddddd,
+            Node_Alloc = 0xcccccccc,
+            None = 0,
+        };
+        uint64_t _seqNumber = 0;
+        void *_address = 0;
+        void *_nextAddress = 0;
+        enMode _mode = enMode::None;
+        DWORD _ThreadID = 0;
     };
     struct stNode final
     {
@@ -120,6 +136,11 @@ class CObjectPool final
         InitializeSRWLock(&_srw_lock);
 #endif
         _top = &_dummy._seqAddress;
+#ifdef POOLTEST
+        _loginfos.resize(100);
+        memset(&_logFront, 0xfd, sizeof(stLogInfo));
+        memset(&_logBack, 0xfd, sizeof(stLogInfo));
+#endif
     }
     ~CObjectPool()
     {
@@ -127,7 +148,7 @@ class CObjectPool final
         stNode *node = reinterpret_cast<stNode *>(_top->_address);
         if (_ActiveNodeCnt != 0)
         {
-            //반환되지 않은 노드가 존재
+            // 반환되지 않은 노드가 존재
             __debugbreak();
         }
 
@@ -176,45 +197,80 @@ class CObjectPool final
     std::list<stNode *> _ActiveNodes;
     SRWLOCK _srw_lock;
 #endif
+
+#ifdef POOLTEST
+    uint64_t _logIdx = -1;
+    stLogInfo _logFront;
+    std::vector<stLogInfo> _loginfos;
+    stLogInfo _logBack;
+#endif
 };
 
 template <typename T>
 inline void *CObjectPool<T>::Alloc()
 {
     stNode *retNode;
-    stSeqAddress *newTop;
-    stSeqAddress *oldTop;
+    stNode *newNode;
+    stNode *newTopNode;
+
+    stSeqAddress newTop;
+    stSeqAddress oldTop;
 
     do
     {
-        oldTop = _top;
-        if (oldTop->_val == (uint64_t)&_dummy)
+        oldTop = *_top;
+        if (oldTop._val == (uint64_t)&_dummy)
         {
             uint64_t local_AllocNodeCnt;
-            retNode = new stNode(this);
+            newNode = new stNode(this);
             local_AllocNodeCnt = _interlockedincrement64((long long *)&_AllocNodeCnt);
 #ifdef POOLTRACE
             if (_capacity == _AllocNodeCnt)
             {
                 CatchLeak();
             }
+            newNode->_bActive = true;
+            AcquireSRWLockExclusive(&_srw_lock);
+            _ActiveNodes.push_back(newNode);
+            ReleaseSRWLockExclusive(&_srw_lock);
+            newNode->_lastTime = INT_MAX;
 #endif
-            break;
+            _interlockedincrement64((long long *)&_ActiveNodeCnt);
+            return (char *)newNode + offsetof(stNode, _data);
         }
 
-        retNode = reinterpret_cast<stNode *>((uint64_t)(oldTop->_address));
-        newTop = &retNode->_next->_seqAddress;
-        
-    } while (_InterlockedCompareExchange64((volatile LONG64 *)&_top->_val, (LONG64)newTop->_val, (LONG64)retNode->_seqAddress._val) != (LONG64)retNode->_seqAddress._val);
-    _interlockedincrement64((long long *)&_ActiveNodeCnt);
+        retNode = reinterpret_cast<stNode *>((uint64_t)(oldTop._address));
+        newTopNode = retNode->_next;
+        newTop = newTopNode->_seqAddress;
+
+    } while (_InterlockedCompareExchange64((volatile LONG64 *)&_top->_val, (LONG64)newTop._val, (LONG64)oldTop._val) != (LONG64)oldTop._val);
+
 #ifdef POOLTRACE
+    if (_capacity == _AllocNodeCnt)
+    {
+        CatchLeak();
+    }
     retNode->_bActive = true;
     AcquireSRWLockExclusive(&_srw_lock);
     _ActiveNodes.push_back(retNode);
     ReleaseSRWLockExclusive(&_srw_lock);
     retNode->_lastTime = INT_MAX;
+#endif
+
+#ifdef POOLTEST
+    uint64_t idx;
+    idx = _interlockedincrement64((volatile long long *)&_logIdx);
+    newTopNode = retNode->_next;
+
+    _loginfos[idx % _loginfos.size()]._ThreadID = GetCurrentThreadId();
+    _loginfos[idx % _loginfos.size()]._mode = stLogInfo::enMode::Node_Alloc;
+
+    _loginfos[idx % _loginfos.size()]._nextAddress = newTopNode;
+    _loginfos[idx % _loginfos.size()]._seqNumber = idx;
+    _loginfos[idx % _loginfos.size()]._address = (char *)retNode + offsetof(stNode, _data);
 
 #endif
+    _interlockedincrement64((long long *)&_ActiveNodeCnt);
     return (char *)retNode + offsetof(stNode, _data);
 }
 
@@ -223,11 +279,17 @@ inline void CObjectPool<T>::Release(void *ptr)
 {
     void *Ptr = (char *)ptr - offsetof(stNode, _data);
     stNode *retNode = static_cast<stNode *>(Ptr);
-    stSeqAddress *oldTop;
+    stSeqAddress oldTop;
+    stSeqAddress newTop;
     stNode *oldTopNode;
 
     uint64_t local_seqNumber;
     local_seqNumber = _InterlockedIncrement(&_seqNumber);
+#ifdef POOLTEST
+    uint64_t idx;
+    idx = _interlockedincrement64((volatile long long *)&_logIdx);
+#endif
+
 #ifdef POOLTRACE
     // 할당한 Pool이 아닐 경우
     if (retNode->_ownerPool != this)
@@ -258,13 +320,23 @@ inline void CObjectPool<T>::Release(void *ptr)
 #endif
     do
     {
-        oldTop = _top;
-        oldTopNode = reinterpret_cast<stNode *>(oldTop->_address);
+        oldTop = *_top;
+        oldTopNode = reinterpret_cast<stNode *>(oldTop._address);
         retNode->_next = oldTopNode;
         retNode->_seqAddress._seqNumber = local_seqNumber;
-    } while (_InterlockedCompareExchange64((volatile LONG64 *)&_top->_val, (LONG64)retNode->_seqAddress._val, (LONG64)oldTop->_val) != (LONG64)oldTop->_val);
+        newTop = retNode->_seqAddress;
+    } while (_InterlockedCompareExchange64((volatile LONG64 *)&_top->_val, (LONG64)newTop._val, (LONG64)oldTop._val) != (LONG64)oldTop._val);
 
     _InterlockedDecrement64((long long *)&_ActiveNodeCnt);
+#ifdef POOLTEST
+
+    _loginfos[idx % _loginfos.size()]._ThreadID = GetCurrentThreadId();
+    _loginfos[idx % _loginfos.size()]._mode = stLogInfo::enMode::Node_Release;
+    _loginfos[idx % _loginfos.size()]._nextAddress = oldTopNode;
+    _loginfos[idx % _loginfos.size()]._seqNumber = idx;
+    _loginfos[idx % _loginfos.size()]._address = ptr;
+
+#endif
 }
 #ifdef POOLTRACE
 template <typename T>

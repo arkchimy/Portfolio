@@ -58,7 +58,7 @@ unsigned int Foo(void *arg)
 
 int main()
 {
-    for (int i =0; i < 10; i++)
+    for (int i =0; i < 1; i++)
         _beginthreadex(nullptr, 0, Foo, nullptr, 0, nullptr);
     pool.SetCapacity(5000);
     while (1)
