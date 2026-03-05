@@ -72,7 +72,7 @@ class CObjectPool final
 #endif
               _next(nullptr), _ownerPool(ownerPool)
         {
-            _val._address = (uint64_t)this;
+            _seqAddress._val = (uint64_t)this;
         }
         stNode(const stNode &other) = delete;
         stNode(stNode &&other) = delete;
@@ -108,7 +108,7 @@ class CObjectPool final
         stNode *_next;
 #endif // POOLTRACE
        // [seqNumber : 17][Address : 47 ] 구조체
-        stSeqAddress _val;
+        stSeqAddress _seqAddress{0};
         CObjectPool *_ownerPool;
     };
 
@@ -119,7 +119,7 @@ class CObjectPool final
 #ifdef POOLTRACE
         InitializeSRWLock(&_srw_lock);
 #endif
-        _top = &_dummy._val;
+        _top = &_dummy._seqAddress;
     }
     ~CObjectPool()
     {
@@ -183,11 +183,12 @@ inline void *CObjectPool<T>::Alloc()
 {
     stNode *retNode;
     stSeqAddress *newTop;
+    stSeqAddress *oldTop;
 
     do
     {
-
-        if (_top->_val == (uint64_t)&_dummy)
+        oldTop = _top;
+        if (oldTop->_val == (uint64_t)&_dummy)
         {
             uint64_t local_AllocNodeCnt;
             retNode = new stNode(this);
@@ -200,12 +201,11 @@ inline void *CObjectPool<T>::Alloc()
 #endif
             break;
         }
-        else
-        {
-            retNode = reinterpret_cast<stNode *>((uint64_t)(_top->_address));
-            newTop = &retNode->_next->_val;
-        }
-    } while (_InterlockedCompareExchangePointer((volatile PVOID *)&_top, newTop, &retNode->_val) != &retNode->_val);
+
+        retNode = reinterpret_cast<stNode *>((uint64_t)(oldTop->_address));
+        newTop = &retNode->_next->_seqAddress;
+        
+    } while (_InterlockedCompareExchange64((volatile LONG64 *)&_top->_val, (LONG64)newTop->_val, (LONG64)retNode->_seqAddress._val) != (LONG64)retNode->_seqAddress._val);
     _interlockedincrement64((long long *)&_ActiveNodeCnt);
 #ifdef POOLTRACE
     retNode->_bActive = true;
@@ -261,8 +261,8 @@ inline void CObjectPool<T>::Release(void *ptr)
         oldTop = _top;
         oldTopNode = reinterpret_cast<stNode *>(oldTop->_address);
         retNode->_next = oldTopNode;
-        retNode->_val._seqNumber = local_seqNumber;
-    } while (_InterlockedCompareExchangePointer((volatile PVOID *)&_top, &retNode->_val, oldTop) != oldTop);
+        retNode->_seqAddress._seqNumber = local_seqNumber;
+    } while (_InterlockedCompareExchange64((volatile LONG64 *)&_top->_val, (LONG64)retNode->_seqAddress._val, (LONG64)oldTop->_val) != (LONG64)oldTop->_val);
 
     _InterlockedDecrement64((long long *)&_ActiveNodeCnt);
 }
