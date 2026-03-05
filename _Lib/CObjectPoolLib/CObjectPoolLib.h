@@ -8,7 +8,7 @@
 #include <cstdint> // uint32_t
 #include <iostream>
 #include <shared_mutex>
-
+#include <timeapi.h>
 #pragma comment(lib, "winmm.lib")
 
 /*
@@ -33,12 +33,12 @@
 
 
 */
-#ifdef _POOLTRACE
+#ifdef POOLTRACE
 #define POOL_TOUCH(type, p) reinterpret_cast<decltype(type)::stNode *>(((char *)(p) - offsetof(decltype(type)::stNode, _data)))->Touch(__FILE__, __LINE__)
 #else
 #define POOL_TOUCH(type, p)
 #endif
-
+// POOLTRACE
 template <typename T>
 class CObjectPool final
 {
@@ -67,7 +67,7 @@ class CObjectPool final
     {
         explicit stNode(CObjectPool *ownerPool)
             :
-#ifdef _POOLTRACE
+#ifdef POOLTRACE
               _bActive(false), _frontGuard(GuardValue), _backGuard(GuardValue), _file(nullptr), _line(0), _lastTime(0),
 #endif
               _next(nullptr), _ownerPool(ownerPool)
@@ -87,14 +87,14 @@ class CObjectPool final
 
         void Touch(const char *file, int line)
         {
-#ifdef _POOLTRACE
+#ifdef POOLTRACE
             _file = file;
             _line = line;
             _lastTime = timeGetTime();
 #endif
         }
 
-#ifdef _POOLTRACE
+#ifdef POOLTRACE
         uint64_t _frontGuard;
         T _data{};
         uint64_t _backGuard;
@@ -106,7 +106,7 @@ class CObjectPool final
 #else
         T _data{};
         stNode *_next;
-#endif // _POOLTRACE
+#endif // POOLTRACE
        // [seqNumber : 17][Address : 47 ] 구조체
         stSeqAddress _val;
         CObjectPool *_ownerPool;
@@ -116,7 +116,7 @@ class CObjectPool final
     CObjectPool()
         : _AllocNodeCnt(0), _ActiveNodeCnt(0), _capacity(INT_MAX), _seqNumber(0)
     {
-#ifdef _POOLTRACE
+#ifdef POOLTRACE
         InitializeSRWLock(&_srw_lock);
 #endif
         _top = &_dummy._val;
@@ -147,7 +147,7 @@ class CObjectPool final
     void *Alloc();
     void Release(void *ptr);
     void SetCapacity(uint32_t capacity) { _capacity = capacity; }
-#ifdef _POOLTRACE
+#ifdef POOLTRACE
     void CatchLeak();
 #endif // DEBUG
 
@@ -172,7 +172,7 @@ class CObjectPool final
 
     uint32_t _capacity;
     uint32_t _seqNumber;
-#ifdef _POOLTRACE
+#ifdef POOLTRACE
     std::list<stNode *> _ActiveNodes;
     SRWLOCK _srw_lock;
 #endif
@@ -192,7 +192,7 @@ inline void *CObjectPool<T>::Alloc()
             uint64_t local_AllocNodeCnt;
             retNode = new stNode(this);
             local_AllocNodeCnt = _interlockedincrement64((long long *)&_AllocNodeCnt);
-#ifdef _POOLTRACE
+#ifdef POOLTRACE
             if (_capacity == _AllocNodeCnt)
             {
                 CatchLeak();
@@ -207,7 +207,7 @@ inline void *CObjectPool<T>::Alloc()
         }
     } while (_InterlockedCompareExchangePointer((volatile PVOID *)&_top, newTop, &retNode->_val) != &retNode->_val);
     _interlockedincrement64((long long *)&_ActiveNodeCnt);
-#ifdef _POOLTRACE
+#ifdef POOLTRACE
     retNode->_bActive = true;
     AcquireSRWLockExclusive(&_srw_lock);
     _ActiveNodes.push_back(retNode);
@@ -228,7 +228,7 @@ inline void CObjectPool<T>::Release(void *ptr)
 
     uint64_t local_seqNumber;
     local_seqNumber = _InterlockedIncrement(&_seqNumber);
-#ifdef _POOLTRACE
+#ifdef POOLTRACE
     // 할당한 Pool이 아닐 경우
     if (retNode->_ownerPool != this)
         __debugbreak();
@@ -242,7 +242,7 @@ inline void CObjectPool<T>::Release(void *ptr)
         __debugbreak();
 #endif
 
-#ifdef _POOLTRACE
+#ifdef POOLTRACE
     retNode->_bActive = false;
     AcquireSRWLockExclusive(&_srw_lock);
     for (auto iter = _ActiveNodes.begin(); iter != _ActiveNodes.end();)
@@ -266,7 +266,7 @@ inline void CObjectPool<T>::Release(void *ptr)
 
     _InterlockedDecrement64((long long *)&_ActiveNodeCnt);
 }
-#ifdef _POOLTRACE
+#ifdef POOLTRACE
 template <typename T>
 inline void CObjectPool<T>::CatchLeak()
 {
