@@ -243,8 +243,8 @@ inline void *CObjectPool<T>::Alloc()
 
         retNode = reinterpret_cast<stNode *>((uint64_t)(oldTop._address));
         newTopNode = retNode->_next;
-        //uint64_t local_seqNumber = _InterlockedIncrement(&_seqNumber);
-        //newTopNode->_seqAddress._seqNumber = local_seqNumber;
+        uint64_t local_seqNumber = _InterlockedIncrement(&_seqNumber);
+        newTopNode->_seqAddress._seqNumber = local_seqNumber;
         newTop = newTopNode->_seqAddress;
 
     } while (_InterlockedCompareExchange64((volatile LONG64 *)&_top._val, (LONG64)newTop._val, (LONG64)oldTop._val) != (LONG64)oldTop._val);

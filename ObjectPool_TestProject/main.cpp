@@ -9,6 +9,7 @@
 
 HANDLE hStartEvent;
 int cnt;
+bool bOn;
 
 class A
 {
@@ -23,14 +24,17 @@ unsigned int Foo(void *arg)
 
     std::vector<A *> vec;
 
-    for (int i = 0; i < cnt; i++)
+    while (bOn)
     {
-        A *a = static_cast<A *>(pool->Alloc());
-        vec.push_back(a);
-    }
-    for (int i = 0; i < cnt; i++)
-    {
-        pool->Release(vec[i]);
+        for (int i = 0; i < cnt; i++)
+        {
+            A *a = static_cast<A *>(pool->Alloc());
+            vec.push_back(a);
+        }
+        for (int i = 0; i < cnt; i++)
+        {
+            pool->Release(vec[i]);
+        }
     }
     
     return 0;
@@ -56,16 +60,19 @@ int main()
         CObjectPool<A> pool;
         HANDLE hThreads[THREAD_CNT];
 
-        cnt = rand() % 100 + 1;
+        cnt = rand() % 1000 + 1;
   
         printf(" LoopCnt : %5d ,", cnt);
 
         for (int i = 0; i < THREAD_CNT; i++)
             hThreads[i] = (HANDLE)_beginthreadex(nullptr, 0, Foo, &pool, 0, nullptr);
+        bOn = true;
 
         RT_ASSERT(hStartEvent != 0);
         SetEvent(hStartEvent);
 
+        Sleep(5000);
+        bOn = false;
         WaitForMultipleObjects(THREAD_CNT, hThreads, true, INFINITE);
         for (int i = 0; i < THREAD_CNT; i++)
             CloseHandle(hThreads[i]);
