@@ -135,7 +135,7 @@ class CObjectPool final
 #ifdef POOLTRACE
         InitializeSRWLock(&_srw_lock);
 #endif
-        _top = &_dummy._seqAddress;
+        _top = _dummy._seqAddress;
 #ifdef POOLTEST
         _loginfos.resize(300);
         memset(&_logFront, 0xfd, sizeof(stLogInfo));
@@ -145,7 +145,7 @@ class CObjectPool final
     ~CObjectPool()
     {
         stNode *oldTop;
-        stNode *node = reinterpret_cast<stNode *>(_top->_address);
+        stNode *node = reinterpret_cast<stNode *>(_top._address);
         if (_ActiveNodeCnt != 0)
         {
             // 반환되지 않은 노드가 존재
@@ -189,8 +189,8 @@ class CObjectPool final
     uint64_t _ActiveNodeCnt;
 
     stNode _dummy{this};
-    stSeqAddress *_top;
-
+    stSeqAddress _top;
+    
     uint32_t _capacity;
     uint32_t _seqNumber;
 #ifdef POOLTRACE
@@ -218,7 +218,7 @@ inline void *CObjectPool<T>::Alloc()
 
     do
     {
-        oldTop = *_top;
+        oldTop = _top;
  
         if (reinterpret_cast<stNode*>(oldTop._address) == &_dummy)
         {
@@ -243,11 +243,11 @@ inline void *CObjectPool<T>::Alloc()
 
         retNode = reinterpret_cast<stNode *>((uint64_t)(oldTop._address));
         newTopNode = retNode->_next;
-        uint64_t local_seqNumber = _InterlockedIncrement(&_seqNumber);
-        newTopNode->_seqAddress._seqNumber = local_seqNumber;
+        //uint64_t local_seqNumber = _InterlockedIncrement(&_seqNumber);
+        //newTopNode->_seqAddress._seqNumber = local_seqNumber;
         newTop = newTopNode->_seqAddress;
 
-    } while (_InterlockedCompareExchange64((volatile LONG64 *)&_top->_val, (LONG64)newTop._val, (LONG64)oldTop._val) != (LONG64)oldTop._val);
+    } while (_InterlockedCompareExchange64((volatile LONG64 *)&_top._val, (LONG64)newTop._val, (LONG64)oldTop._val) != (LONG64)oldTop._val);
 
 #ifdef POOLTRACE
     if (_capacity == _AllocNodeCnt)
@@ -324,13 +324,13 @@ inline void CObjectPool<T>::Release(void *ptr)
 #endif
     do
     {
-        oldTop = *_top;
+        oldTop = _top;
         oldTopNode = reinterpret_cast<stNode *>(oldTop._address);
         retNode->_next = oldTopNode;
 
         retNode->_seqAddress._seqNumber = local_seqNumber;
         newTop = retNode->_seqAddress;
-    } while (_InterlockedCompareExchange64((volatile LONG64 *)&_top->_val, (LONG64)newTop._val, (LONG64)oldTop._val) != (LONG64)oldTop._val);
+    } while (_InterlockedCompareExchange64((volatile LONG64 *)&_top._val, (LONG64)newTop._val, (LONG64)oldTop._val) != (LONG64)oldTop._val);
 
     _InterlockedDecrement64((long long *)&_ActiveNodeCnt);
 #ifdef POOLTEST
