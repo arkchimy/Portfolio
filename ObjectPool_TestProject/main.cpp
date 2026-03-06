@@ -33,12 +33,10 @@ unsigned int Foo(void *arg)
             
             A *a = static_cast<A *>(pool->Alloc());
             vec.push_back(a);
-            POOL_TOUCH(rpool, a);
         }
         for (int i = 0; i < cnt; i++)
         {
-            if(rand()% 1000 != 0)
-                pool->Release(vec[i]);
+            pool->Release(vec[i]);
         }
         vec.clear();
     }
