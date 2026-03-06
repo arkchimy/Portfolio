@@ -137,7 +137,7 @@ class CObjectPool final
 #endif
         _top = _dummy._seqAddress;
 #ifdef POOLTEST
-        _loginfos.resize(300);
+        _loginfos.resize(20);
         memset(&_logFront, 0xfd, sizeof(stLogInfo));
         memset(&_logBack, 0xfd, sizeof(stLogInfo));
 #endif
@@ -183,14 +183,14 @@ class CObjectPool final
     }
 
   private:
+    stSeqAddress _top;
     // 해당 ObjectPool 에서 할당한 Node수
     uint64_t _AllocNodeCnt;
     // 아직 반환되지않은 Node의 Cnt
     uint64_t _ActiveNodeCnt;
 
     stNode _dummy{this};
-    stSeqAddress _top;
-    
+
     uint32_t _capacity;
     uint32_t _seqNumber;
 #ifdef POOLTRACE
@@ -219,8 +219,8 @@ inline void *CObjectPool<T>::Alloc()
     do
     {
         oldTop = _top;
- 
-        if (reinterpret_cast<stNode*>(oldTop._address) == &_dummy)
+
+        if (reinterpret_cast<stNode *>(oldTop._address) == &_dummy)
         {
             uint64_t local_AllocNodeCnt;
             newNode = new stNode(this);

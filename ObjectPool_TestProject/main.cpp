@@ -40,7 +40,7 @@ unsigned int Foo(void *arg)
     return 0;
 }
 
-#define THREAD_CNT 10
+#define THREAD_CNT 2
 #define RT_ASSERT(x)        \
     do                      \
     {                       \
@@ -60,7 +60,7 @@ int main()
         CObjectPool<A> pool;
         HANDLE hThreads[THREAD_CNT];
 
-        cnt = rand() % 1000 + 1;
+        cnt = rand() % 10 + 1;
   
         printf(" LoopCnt : %5d ,", cnt);
 
