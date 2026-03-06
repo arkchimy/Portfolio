@@ -23,7 +23,7 @@ unsigned int Foo(void *arg)
     CObjectPool<A> *pool = static_cast<CObjectPool<A> *>(arg);
 
     std::vector<A *> vec;
-
+    vec.reserve(cnt);
     while (bOn)
     {
         for (int i = 0; i < cnt; i++)
@@ -35,12 +35,13 @@ unsigned int Foo(void *arg)
         {
             pool->Release(vec[i]);
         }
+        vec.clear();
     }
     
     return 0;
 }
 
-#define THREAD_CNT 2
+#define THREAD_CNT 10
 #define RT_ASSERT(x)        \
     do                      \
     {                       \
