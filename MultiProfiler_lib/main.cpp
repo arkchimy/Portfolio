@@ -41,13 +41,13 @@ unsigned int Foo(void *arg)
 
         {
             stProfile profile(L"PoolAlloc");
-            for (int i = 0; i < 100; i++)
+            for (int i = 0; i < 5; i++)
             {
                 A *a = static_cast<A *> (pool.Alloc());
                 vec.emplace_back(a);
    
             }
-            for (int i = 0; i < 100; i++)
+            for (int i = 0; i < 5; i++)
             {
       
                 pool.Release(vec[i]);
@@ -58,7 +58,7 @@ unsigned int Foo(void *arg)
 
 int main()
 {
-    for (int i =0; i < 1; i++)
+    for (int i =0; i < 10; i++)
         _beginthreadex(nullptr, 0, Foo, nullptr, 0, nullptr);
     pool.SetCapacity(5000);
     while (1)

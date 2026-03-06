@@ -75,8 +75,8 @@ class CObjectPool final
         };
         uint64_t _seqNumber = 0;
         void *_address = 0;
-        void *_nextAddress = 0;
         enMode _mode = enMode::None;
+        void *_nextAddress = 0;
         DWORD _ThreadID = 0;
     };
     struct stNode final
@@ -137,7 +137,7 @@ class CObjectPool final
 #endif
         _top = &_dummy._seqAddress;
 #ifdef POOLTEST
-        _loginfos.resize(100);
+        _loginfos.resize(300);
         memset(&_logFront, 0xfd, sizeof(stLogInfo));
         memset(&_logBack, 0xfd, sizeof(stLogInfo));
 #endif
@@ -219,7 +219,8 @@ inline void *CObjectPool<T>::Alloc()
     do
     {
         oldTop = *_top;
-        if (oldTop._val == (uint64_t)&_dummy)
+ 
+        if (reinterpret_cast<stNode*>(oldTop._address) == &_dummy)
         {
             uint64_t local_AllocNodeCnt;
             newNode = new stNode(this);
@@ -236,11 +237,14 @@ inline void *CObjectPool<T>::Alloc()
             newNode->_lastTime = INT_MAX;
 #endif
             _interlockedincrement64((long long *)&_ActiveNodeCnt);
+
             return (char *)newNode + offsetof(stNode, _data);
         }
 
         retNode = reinterpret_cast<stNode *>((uint64_t)(oldTop._address));
         newTopNode = retNode->_next;
+        uint64_t local_seqNumber = _InterlockedIncrement(&_seqNumber);
+        newTopNode->_seqAddress._seqNumber = local_seqNumber;
         newTop = newTopNode->_seqAddress;
 
     } while (_InterlockedCompareExchange64((volatile LONG64 *)&_top->_val, (LONG64)newTop._val, (LONG64)oldTop._val) != (LONG64)oldTop._val);
@@ -251,6 +255,8 @@ inline void *CObjectPool<T>::Alloc()
         CatchLeak();
     }
     retNode->_bActive = true;
+    if (_dummy._bActive)
+        __debugbreak();
     AcquireSRWLockExclusive(&_srw_lock);
     _ActiveNodes.push_back(retNode);
     ReleaseSRWLockExclusive(&_srw_lock);
@@ -265,11 +271,13 @@ inline void *CObjectPool<T>::Alloc()
     _loginfos[idx % _loginfos.size()]._ThreadID = GetCurrentThreadId();
     _loginfos[idx % _loginfos.size()]._mode = stLogInfo::enMode::Node_Alloc;
 
-    _loginfos[idx % _loginfos.size()]._nextAddress = newTopNode;
+    _loginfos[idx % _loginfos.size()]._nextAddress = (char *)newTopNode + offsetof(stNode, _data);
     _loginfos[idx % _loginfos.size()]._seqNumber = idx;
     _loginfos[idx % _loginfos.size()]._address = (char *)retNode + offsetof(stNode, _data);
 
 #endif
+    uint64_t local_seqNumber = _InterlockedIncrement(&_seqNumber);
+    newTopNode->_seqAddress._seqNumber = local_seqNumber;
     _interlockedincrement64((long long *)&_ActiveNodeCnt);
     return (char *)retNode + offsetof(stNode, _data);
 }
@@ -285,10 +293,6 @@ inline void CObjectPool<T>::Release(void *ptr)
 
     uint64_t local_seqNumber;
     local_seqNumber = _InterlockedIncrement(&_seqNumber);
-#ifdef POOLTEST
-    uint64_t idx;
-    idx = _interlockedincrement64((volatile long long *)&_logIdx);
-#endif
 
 #ifdef POOLTRACE
     // 할당한 Pool이 아닐 경우
@@ -323,16 +327,20 @@ inline void CObjectPool<T>::Release(void *ptr)
         oldTop = *_top;
         oldTopNode = reinterpret_cast<stNode *>(oldTop._address);
         retNode->_next = oldTopNode;
+
         retNode->_seqAddress._seqNumber = local_seqNumber;
         newTop = retNode->_seqAddress;
     } while (_InterlockedCompareExchange64((volatile LONG64 *)&_top->_val, (LONG64)newTop._val, (LONG64)oldTop._val) != (LONG64)oldTop._val);
 
     _InterlockedDecrement64((long long *)&_ActiveNodeCnt);
 #ifdef POOLTEST
+    uint64_t idx;
+    idx = _interlockedincrement64((volatile long long *)&_logIdx);
 
     _loginfos[idx % _loginfos.size()]._ThreadID = GetCurrentThreadId();
     _loginfos[idx % _loginfos.size()]._mode = stLogInfo::enMode::Node_Release;
-    _loginfos[idx % _loginfos.size()]._nextAddress = oldTopNode;
+    _loginfos[idx % _loginfos.size()]._nextAddress = (char *)oldTopNode + offsetof(stNode, _data);
+
     _loginfos[idx % _loginfos.size()]._seqNumber = idx;
     _loginfos[idx % _loginfos.size()]._address = ptr;
 
