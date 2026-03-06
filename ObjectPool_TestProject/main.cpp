@@ -16,6 +16,8 @@ class A
   public:
     int a;
 };
+CObjectPool<A> rpool;
+
 unsigned int Foo(void *arg)
 {
     WaitForSingleObject(hStartEvent, INFINITE);
@@ -28,12 +30,15 @@ unsigned int Foo(void *arg)
     {
         for (int i = 0; i < cnt; i++)
         {
+            
             A *a = static_cast<A *>(pool->Alloc());
             vec.push_back(a);
+            POOL_TOUCH(rpool, a);
         }
         for (int i = 0; i < cnt; i++)
         {
-            pool->Release(vec[i]);
+            if(rand()% 1000 != 0)
+                pool->Release(vec[i]);
         }
         vec.clear();
     }
@@ -61,7 +66,7 @@ int main()
         CObjectPool<A> pool;
         HANDLE hThreads[THREAD_CNT];
 
-        cnt = rand() % 10 + 1;
+        cnt = rand() % 100 + 1;
   
         printf(" LoopCnt : %5d ,", cnt);
 
@@ -72,7 +77,7 @@ int main()
         RT_ASSERT(hStartEvent != 0);
         SetEvent(hStartEvent);
 
-        Sleep(5000);
+        //Sleep(5000);
         bOn = false;
         WaitForMultipleObjects(THREAD_CNT, hThreads, true, INFINITE);
         for (int i = 0; i < THREAD_CNT; i++)
@@ -81,6 +86,6 @@ int main()
         ResetEvent(hStartEvent);
 
         printf("   Pool AllocCnt : %5lld  Pool ActiveCnt : %5lld \n", pool.GetAllocNodeCnt(), pool.GetActiveNodeCnt());
-        Sleep(1000);
+        //Sleep(1000);
     }
 }

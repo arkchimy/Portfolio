@@ -149,6 +149,9 @@ class CObjectPool final
         if (_ActiveNodeCnt != 0)
         {
             // 반환되지 않은 노드가 존재
+#ifdef POOLTRACE
+            CatchLeak();
+#endif
             __debugbreak();
         }
 
@@ -243,8 +246,8 @@ inline void *CObjectPool<T>::Alloc()
 
         retNode = reinterpret_cast<stNode *>((uint64_t)(oldTop._address));
         newTopNode = retNode->_next;
-        //uint64_t local_seqNumber = _InterlockedIncrement(&_seqNumber);
-        //newTopNode->_seqAddress._seqNumber = local_seqNumber;
+        // uint64_t local_seqNumber = _InterlockedIncrement(&_seqNumber);
+        // newTopNode->_seqAddress._seqNumber = local_seqNumber;
         newTop = newTopNode->_seqAddress;
 
     } while (_InterlockedCompareExchange64((volatile LONG64 *)&_top._val, (LONG64)newTop._val, (LONG64)oldTop._val) != (LONG64)oldTop._val);
@@ -276,8 +279,8 @@ inline void *CObjectPool<T>::Alloc()
     _loginfos[idx % _loginfos.size()]._address = (char *)retNode + offsetof(stNode, _data);
 
 #endif
-    //uint64_t local_seqNumber = _InterlockedIncrement(&_seqNumber);
-    //newTopNode->_seqAddress._seqNumber = local_seqNumber;
+    // uint64_t local_seqNumber = _InterlockedIncrement(&_seqNumber);
+    // newTopNode->_seqAddress._seqNumber = local_seqNumber;
     _interlockedincrement64((long long *)&_ActiveNodeCnt);
     return (char *)retNode + offsetof(stNode, _data);
 }
@@ -331,7 +334,7 @@ inline void CObjectPool<T>::Release(void *ptr)
         retNode->_seqAddress._seqNumber = local_seqNumber;
         newTop = retNode->_seqAddress;
     } while (_InterlockedCompareExchange64((volatile LONG64 *)&_top._val,
-        (LONG64)newTop._val, (LONG64)oldTop._val) != (LONG64)oldTop._val);
+                                           (LONG64)newTop._val, (LONG64)oldTop._val) != (LONG64)oldTop._val);
 
     _InterlockedDecrement64((long long *)&_ActiveNodeCnt);
 #ifdef POOLTEST
@@ -346,7 +349,6 @@ inline void CObjectPool<T>::Release(void *ptr)
     _loginfos[idx % _loginfos.size()]._address = ptr;
 
 #endif
-
 }
 #ifdef POOLTRACE
 template <typename T>
