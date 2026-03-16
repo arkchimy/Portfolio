@@ -614,7 +614,8 @@ void CLanServer::SendComplete(clsSession &session, DWORD transferred)
                     ZeroMemory(&session.m_sendOverlapped, sizeof(OVERLAPPED));
 
                     InterlockedIncrement(&session.m_ioCount);
-                    PostQueuedCompletionStatus(m_hIOCP, 0, (ULONG_PTR)&session, &session.m_sendOverlapped);
+                    PostQueuedCompletionStatus(m_hIOCP, 0, (ULONG_PTR)&session
+                        , &session.m_sendOverlapped);
                 }
             }
         }
@@ -770,22 +771,15 @@ void CLanServer::Unicast(ull SessionID, CMessage *msg, LONG64 Account)
         return;
     }
     clsSession &session = sessions_vec[SessionID >> 47];
-
     // 여기까지 왔다면, 같은 Session으로 판단하자.
-    CMessage **ppMsg;
     ull local_IoCount;
-    ppMsg = &msg;
-
     {
-
-  
         {
             Profiler profile(L"LFQ_Push");
             session.m_sendBuffer.Push(msg);
         }
 
     }
-    
     // PQCS를 시도.
     if (InterlockedCompareExchange(&session.m_flag, 1, 0) == 0)
     {
@@ -793,7 +787,8 @@ void CLanServer::Unicast(ull SessionID, CMessage *msg, LONG64 Account)
 
         local_IoCount = InterlockedIncrement(&session.m_ioCount);
 
-        PostQueuedCompletionStatus(m_hIOCP, 0, (ULONG_PTR)&session, &session.m_sendOverlapped);
+        PostQueuedCompletionStatus(m_hIOCP, 0, (ULONG_PTR)&session
+            , &session.m_sendOverlapped);
     }
     if(session.m_sendBuffer.m_size >= SendBufferLimit)
     {
