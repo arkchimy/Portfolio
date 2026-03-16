@@ -600,10 +600,8 @@ void CLanServer::SendComplete(clsSession &session, DWORD transferred)
     }
 
     useSize = (ringBufferSize)session.m_sendBuffer.m_size;
-
     if (useSize == 0)
     {
-        useSize = (ringBufferSize)session.m_sendBuffer.m_size;
         // flag 끄기
         if (_InterlockedCompareExchange(&session.m_flag, 0, 1) == 1)
         {
